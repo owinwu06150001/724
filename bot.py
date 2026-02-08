@@ -154,7 +154,7 @@ async def latency(interaction: discord.Interaction):
     await interaction.followup.send(f"本公子的延遲為: {latency_ms} ms", ephemeral=True)
 
 # ===== 自動重連 =====
-@tasks.loop(seconds=10)
+@tasks.loop(seconds=30)
 async def check_connection():
     for guild_id, channel_id in list(stay_channels.items()):
         guild = bot.get_guild(guild_id)
@@ -171,3 +171,4 @@ async def check_connection():
 
 # ===== 啟動 =====
 bot.run(os.environ["DISCORD_TOKEN"])
+
