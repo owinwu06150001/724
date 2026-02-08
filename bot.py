@@ -43,14 +43,14 @@ def format_duration(seconds: int) -> str:
 @bot.event
 async def on_ready():
     await tree.sync()
-    print(f"✅ 掛群機器人已上線：{bot.user}")
+    print(f"掛群機器人已上線：{bot.user}")
     check_connection.start()
 
 
 # ===== /加入 =====
 @tree.command(
     name="加入",
-    description="加入語音頻道（可指定，或加入你目前所在的頻道）"
+    description="加入語音頻道（可指定 或加入你目前所在的頻道）"
 )
 @app_commands.describe(channel="要加入的語音頻道（可不選）")
 async def join(
@@ -80,7 +80,7 @@ async def join(
     stay_since[guild.id] = time.time()
 
     await interaction.response.send_message(
-        f"我進來**{channel.name}**竊聽")
+        f"我進來**{channel.name}** 竊聽了")
 
 
 # ===== /離開 =====
@@ -127,16 +127,16 @@ async def status(interaction: discord.Interaction):
 
     if not guild.voice_client:
         await interaction.response.send_message(
-            f"⚠️ 記錄中掛在 **{channel.name if channel else '未知頻道'}**\n"
-            f"⏱ 已掛 **{duration_text}**\n"
+            f"記錄中掛在 **{channel.name if channel else '未知頻道'}**\n"
+            f"目前已經竊聽 **{duration_text}**\n"
             "目前未連線 等待自動重連",
             ephemeral=True
         )
         return
 
     await interaction.response.send_message(
-        f"🎧 目前掛在 **{channel.name}**\n"
-        f"⏱ 已掛 **{duration_text}**",
+        f"目前在 **{channel.name}** 竊聽中\n"
+        f"已竊聽 **{duration_text}**",
         ephemeral=True
     )
 
@@ -153,10 +153,11 @@ async def check_connection():
         if channel:
             try:
                 await channel.connect()
-                print(f"🔁 已自動重連：{guild.name}")
+                print(f"已自動重連：{guild.name}")
             except Exception as e:
-                print(f"❌ 重連失敗 ({guild.name}): {e}")
+                print(f"重連失敗 ({guild.name}): {e}")
 
 
 # ===== 啟動 =====
 bot.run(os.environ["DISCORD_TOKEN"])
+
