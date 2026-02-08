@@ -20,7 +20,6 @@ tree = bot.tree
 stay_channels = {}   # guild_id -> channel_id
 stay_since = {}     # guild_id -> timestamp
 
-
 # ===== 工具：格式化時間 =====
 def format_duration(seconds: int) -> str:
     days, seconds = divmod(seconds, 86400)
@@ -37,7 +36,6 @@ def format_duration(seconds: int) -> str:
     parts.append(f"{seconds} 秒")
 
     return " ".join(parts)
-
 
 # ===== Bot Ready =====
 @bot.event
@@ -57,20 +55,20 @@ async def join(
     interaction: discord.Interaction,
     channel: discord.VoiceChannel | None = None
 ):
+    await interaction.response.defer(thinking=True)  # ✅ 先 defer
+
     guild = interaction.guild
     user = interaction.user
 
-    # 沒指定頻道 → 用使用者所在頻道
     if channel is None:
         if not user.voice:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "你沒選頻道也沒在語音頻道 我是要進哪",
                 ephemeral=True
             )
             return
         channel = user.voice.channel
 
-    # 已在語音就移動，否則連線
     if guild.voice_client:
         await guild.voice_client.move_to(channel)
     else:
@@ -79,8 +77,9 @@ async def join(
     stay_channels[guild.id] = channel.id
     stay_since[guild.id] = time.time()
 
-    await interaction.response.send_message(
-        f"我進來**{channel.name}** 竊聽了")
+    await interaction.followup.send(
+        f"我進來**{channel.name}** 竊聽了"
+    )
 
 
 # ===== /離開 =====
@@ -89,15 +88,17 @@ async def join(
     description="讓機器人離開語音頻道並停止掛機"
 )
 async def leave(interaction: discord.Interaction):
+    await interaction.response.defer(thinking=True)  # ✅ 先 defer
+
     guild = interaction.guild
 
     if guild.voice_client:
         await guild.voice_client.disconnect()
         stay_channels.pop(guild.id, None)
         stay_since.pop(guild.id, None)
-        await interaction.response.send_message("我走了 你別再難過")
+        await interaction.followup.send("我走了 你別再難過")
     else:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "我不在語音頻道是要離開去哪",
             ephemeral=True
         )
@@ -109,10 +110,12 @@ async def leave(interaction: discord.Interaction):
     description="查看機器人目前掛在哪個語音頻道與掛機時間"
 )
 async def status(interaction: discord.Interaction):
+    await interaction.response.defer(thinking=True)  # ✅ 先 defer
+
     guild = interaction.guild
 
     if guild.id not in stay_channels:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "老子沒掛在任何語音頻道",
             ephemeral=True
         )
@@ -126,7 +129,7 @@ async def status(interaction: discord.Interaction):
     duration_text = format_duration(duration)
 
     if not guild.voice_client:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             f"記錄中掛在 **{channel.name if channel else '未知頻道'}**\n"
             f"目前已經竊聽 **{duration_text}**\n"
             "目前未連線 等待自動重連",
@@ -134,7 +137,7 @@ async def status(interaction: discord.Interaction):
         )
         return
 
-    await interaction.response.send_message(
+    await interaction.followup.send(
         f"目前在 **{channel.name}** 竊聽中\n"
         f"已竊聽 **{duration_text}**",
         ephemeral=True
@@ -160,4 +163,3 @@ async def check_connection():
 
 # ===== 啟動 =====
 bot.run(os.environ["DISCORD_TOKEN"])
-
