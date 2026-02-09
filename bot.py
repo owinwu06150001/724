@@ -63,17 +63,23 @@ async def on_ready():
     # 1. 同步指令
     await tree.sync()
     
-    # 2. 設定自定義狀態 (這就是你要的便利貼效果)
-    # 文字內容填在 state 參數中
-    custom_status = discord.CustomActivity(name="CustomStatus", state="慢慢摸索中")
-    await bot.change_presence(status=discord.Status.online, activity=custom_status)
+    # 2. 設定自定義狀態 (修正版：確保留言板效果)
+    # type=discord.ActivityType.custom 是顯示「氣泡型便利貼」的關鍵
+    activity = discord.Activity(
+        type=discord.ActivityType.custom, 
+        name="custom", 
+        state="慢慢摸索中"
+    )
+    await bot.change_presence(status=discord.Status.online, activity=activity)
     
     print(f"掛群機器人已上線：{bot.user}")
-    print(f"狀態已設定為：{custom_status.state}")
+    print(f"狀態已設定為：慢慢摸索中")
     
     # 3. 啟動循環任務
-    check_connection.start()
-    tagging_task.start()
+    if not check_connection.is_running():
+        check_connection.start()
+    if not tagging_task.is_running():
+        tagging_task.start()
 
 # ===== 功能：標註機器人回覆用法 =====
 @bot.event
