@@ -63,17 +63,22 @@ async def on_ready():
     # 1. 同步指令
     await tree.sync()
     
-    # 2. 設定自定義狀態 (修正版：確保留言板效果)
-    # type=discord.ActivityType.custom 是顯示「氣泡型便利貼」的關鍵
+    # 2. 同時設定「正在玩」與「自定義狀態(便利貼)」
+    # 這裡的 state 是氣泡文字，activity 中的 name 可以設定成正在玩的內容
     activity = discord.Activity(
         type=discord.ActivityType.custom, 
-        name="custom", 
-        state="慢慢摸索中"
+        name="這裡不會顯示", 
+        state="慢慢摸索中", 
+        details="正在玩 你的感情" # 部分版本支援在活動詳情顯示
     )
+    
+    # 如果要最保險的同時顯示，通常 Discord 會優先顯示 Custom Status 氣泡。
+    # 註：有些 Discord 版本限制一個 Client 只能同時「廣播」一種主要的 Activity。
+    # 為了達成「兩個都要」，我們將氣泡設定為 Custom，並在細節中加入正在玩的資訊。
     await bot.change_presence(status=discord.Status.online, activity=activity)
     
     print(f"掛群機器人已上線：{bot.user}")
-    print(f"狀態已設定為：慢慢摸索中")
+    print(f"狀態已設定：氣泡顯示「慢慢摸索中」")
     
     # 3. 啟動循環任務
     if not check_connection.is_running():
