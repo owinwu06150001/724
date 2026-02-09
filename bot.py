@@ -95,7 +95,8 @@ async def join(interaction: discord.Interaction, channel: discord.VoiceChannel |
     if guild.voice_client:
         await guild.voice_client.move_to(channel)
     else:
-        await channel.connect()
+        # 加入 self_deafen=True
+        await channel.connect(self_deafen=True)
 
     stay_channels[guild.id] = channel.id
     stay_since[guild.id] = time.time()
@@ -149,7 +150,8 @@ async def check_connection():
         channel = bot.get_channel(channel_id)
         if channel:
             try:
-                await channel.connect()
+                # 重連時也加入 self_deafen=True
+                await channel.connect(self_deafen=True)
                 print(f"已自動重連：{guild.name}")
             except Exception as e:
                 print(f"重連失敗 ({guild.name}): {e}")
