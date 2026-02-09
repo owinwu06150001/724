@@ -63,15 +63,15 @@ async def on_ready():
     # 1. 同步指令
     await tree.sync()
     
-    # 2. 設定自定義狀態 (便利貼效果)
-    # state 參數就是你要在頭像旁顯示的文字
-    custom_status = discord.CustomActivity(name="CustomStatus", state="原來你也玩原神 | yeecord.com")
+    # 2. 設定自定義狀態 (這就是你要的便利貼效果)
+    # 文字內容填在 state 參數中
+    custom_status = discord.CustomActivity(name="CustomStatus", state="慢慢摸索中")
     await bot.change_presence(status=discord.Status.online, activity=custom_status)
     
     print(f"掛群機器人已上線：{bot.user}")
     print(f"狀態已設定為：{custom_status.state}")
     
-    # 3. 啟動任務
+    # 3. 啟動循環任務
     check_connection.start()
     tagging_task.start()
 
