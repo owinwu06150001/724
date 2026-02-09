@@ -96,7 +96,7 @@ async def join(interaction: discord.Interaction, channel: discord.VoiceChannel |
         await guild.voice_client.move_to(channel)
     else:
         # 加入 self_deafen=True
-        await channel.connect(self_deafen=True)
+        await channel.connect(self_deaf=True)
 
     stay_channels[guild.id] = channel.id
     stay_since[guild.id] = time.time()
@@ -162,3 +162,4 @@ if token:
     bot.run(token)
 else:
     print("錯誤：找不到 DISCORD_TOKEN 環境變數")
+
