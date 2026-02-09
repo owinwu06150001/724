@@ -51,7 +51,7 @@ def get_usage_text():
         "* **/開始標註 `[成員]` `[內容]` `[次數]`**：瘋狂轟炸某人（次數不填則直至機器人下線或使用者使用停止指令）。\n"
         "* **/停止標註**：結束目前的轟炸。\n"
         "* **/狀態**：查看目前掛機頻道、已掛機時間與延遲。\n"
-        "* **/延遲**：檢查機器人當前延遲 (ms)。\n"
+        "* **/延遲**：檢查機器人當前延遲 (ms).\n"
         "* **/使用方式**：顯示此幫助選單。\n\n"
         "### 小提醒\n"
         "* 機器人每 30 秒會自動檢查連線，斷線會自動連回。"
@@ -61,6 +61,12 @@ def get_usage_text():
 @bot.event
 async def on_ready():
     await tree.sync()
+    
+    # --- 僅新增此段設定自定義狀態 ---
+    custom_status = discord.CustomActivity(name="CustomStatus", state="原來你也玩原神 | yeecord.com")
+    await bot.change_presence(activity=custom_status)
+    # ----------------------------
+    
     print(f"掛群機器人已上線：{bot.user}")
     check_connection.start()
     tagging_task.start()
@@ -200,4 +206,3 @@ if token:
     bot.run(token)
 else:
     print("錯誤：找不到 DISCORD_TOKEN 環境變數")
-
