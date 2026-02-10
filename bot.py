@@ -5,6 +5,8 @@ import os
 import time
 import asyncio
 from server import keep_alive
+import static_ffmpeg
+static_ffmpeg.add_paths() # 這會自動下載 ffmpeg 並加入環境變數
 
 # ===== 啟動 Web 服務（給 Render 用） =====
 keep_alive()
@@ -273,3 +275,4 @@ if token:
     bot.run(token)
 else:
     print("錯誤：找不到 DISCORD_TOKEN 環境變數")
+
