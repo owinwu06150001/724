@@ -23,6 +23,12 @@ stay_channels = {}   # guild_id -> channel_id
 stay_since = {}      # guild_id -> timestamp
 tag_targets = {}     # guild_id -> {"user_id": int, "content": str, "channel_id": int, "count": int|None}
 
+# ===== 播放音檔設定 (需要 FFmpeg) =====
+FFMPEG_OPTIONS = {
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+    'options': '-vn',
+}
+
 # ===== 工具：格式化時間與用法文字 =====
 def format_duration(seconds: int) -> str:
     days, seconds = divmod(seconds, 86400)
@@ -47,11 +53,12 @@ def get_usage_text():
         "本機器人為 **24/7 語音掛機** 設計 具備30秒自動重連機制。\n\n"
         "### 指令列表\n"
         "* **/加入 `[頻道]`**：讓機器人進入語音頻道（可不選，預設進入你所在的頻道）。\n"
+        "* **/播放 `[檔案]`**：**直接上傳** mp3, ogg, m4a 檔案進行播放。\n"
+        "* **/停止播放**：停止目前播放的音檔。\n"
         "* **/離開**：讓機器人退出語音頻道並停止掛機。\n"
         "* **/開始標註 `[成員]` `[內容]` `[次數]`**：瘋狂轟炸某人（次數不填則直至機器人下線或使用者使用停止指令）。\n"
         "* **/停止標註**：結束目前的轟炸。\n"
         "* **/狀態**：查看目前掛機頻道、已掛機時間與延遲。\n"
-        "* **/延遲**：檢查機器人當前延遲 (ms).\n"
         "* **/使用方式**：顯示此幫助選單。\n\n"
         "### 小提醒\n"
         "* 機器人每 30 秒會自動檢查連線，斷線會自動連回。"
@@ -60,7 +67,6 @@ def get_usage_text():
 # ===== Bot Ready =====
 @bot.event
 async def on_ready():
-    # 1. 同步指令
     await tree.sync()
     
     # 2. 同時設定「正在玩」與「自定義狀態(便利貼)」
@@ -166,12 +172,59 @@ async def leave(interaction: discord.Interaction):
     else:
         await interaction.followup.send("我不在語音頻道 要離開去哪？", ephemeral=True)
 
-# ====== 修正區塊開始 ======
+# ====== 新增：播放功能 ======
+@tree.command(name="播放", description="直接上傳音檔 (mp3, ogg, m4a) 讓機器人播放")
+@app_commands.describe(檔案="請選擇要上傳的音檔")
+async def play_file(interaction: discord.Interaction, 檔案: discord.Attachment):
+    await interaction.response.defer(thinking=True)
+    
+    # 檢查檔案格式
+    ext = 檔案.filename.lower()
+    if not (ext.endswith('.mp3') or ext.endswith('.ogg') or ext.endswith('.m4a')):
+        return await interaction.followup.send("❌ 格式不支援！請上傳 mp3, ogg 或 m4a 檔案。", ephemeral=True)
+
+    guild = interaction.guild
+    # 檢查使用者是否在語音頻道
+    if not interaction.user.voice:
+        return await interaction.followup.send("❌ 你必須先進入一個語音頻道！", ephemeral=True)
+    
+    try:
+        # 連線到語音
+        if not guild.voice_client:
+            vc = await interaction.user.voice.channel.connect(self_deaf=True, self_mute=True)
+            stay_channels[guild.id] = interaction.user.voice.channel.id
+            stay_since[guild.id] = time.time()
+        else:
+            vc = guild.voice_client
+
+        # 如果正在播放，先停止
+        if vc.is_playing():
+            vc.stop()
+
+        # 播放檔案
+        source = discord.FFmpegPCMAudio(檔案.url, **FFMPEG_OPTIONS)
+        vc.play(source, after=lambda e: print(f"播放結束: {e}") if e else None)
+        
+        await interaction.followup.send(f"🎶 正在播放：**{檔案.filename}**")
+        
+    except Exception as e:
+        await interaction.followup.send(f"❌ 播放失敗：{e}")
+
+@tree.command(name="停止播放", description="停止目前播放的音檔")
+async def stop_audio(interaction: discord.Interaction):
+    vc = interaction.guild.voice_client
+    if vc and vc.is_playing():
+        vc.stop()
+        await interaction.response.send_message("⏹️ 已停止播放。")
+    else:
+        await interaction.response.send_message("目前沒有正在播放的音檔。", ephemeral=True)
+# ===========================
+
 @tree.command(name="開始標註", description="瘋狂轟炸某人")
 @app_commands.describe(target="對象", 內容="內容", 次數="次數 (不填則直至機器人下線或使用者使用停止指令)")
 async def start_tag(interaction: discord.Interaction, target: discord.Member, 內容: str, 次數: int | None = None):
     # 資料儲存使用中文變數「內容」
-    tag_targets[interaction.guild_id] = {
+    tag_targets[interaction.guild.id] = {
         "user_id": target.id,
         "content": 內容,  
         "channel_id": interaction.channel_id,
@@ -179,7 +232,6 @@ async def start_tag(interaction: discord.Interaction, target: discord.Member, �
     }
     # 回覆訊息修正為中文變數「內容」
     await interaction.response.send_message(f"開始轟炸 {target.mention}！內容：{內容}")
-# ====== 修正區塊結束 ======
 
 @tree.command(name="停止標註", description="停止轟炸")
 async def stop_tag(interaction: discord.Interaction):
