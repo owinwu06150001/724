@@ -171,13 +171,13 @@ async def leave(interaction: discord.Interaction):
         await interaction.followup.send("我不在語音頻道 要離開去哪？", ephemeral=True)
 
 @tree.command(name="開始標註", description="瘋狂轟炸某人")
-@app_commands.describe(target="對象", content="內容", count="次數 (不填則直至機器人下線或使用者使用停止指令)")
-async def start_tag(interaction: discord.Interaction, target: discord.Member, content: str, count: int | None = None):
+@app_commands.describe(target="對象", 內容="內容", 次數="次數 (不填則直至機器人下線或使用者使用停止指令)")
+async def start_tag(interaction: discord.Interaction, target: discord.Member, 內容: str, 次數: int | None = None):
     tag_targets[interaction.guild_id] = {
         "user_id": target.id,
-        "content": content,
+        "content": 內容,
         "channel_id": interaction.channel_id,
-        "count": count
+        "count": 次數
     }
     await interaction.response.send_message(f"開始轟炸 {target.mention}！內容：{content}")
 
@@ -221,3 +221,4 @@ if token:
     bot.run(token)
 else:
     print("錯誤：找不到 DISCORD_TOKEN 環境變數")
+
