@@ -64,17 +64,13 @@ async def on_ready():
     await tree.sync()
     
     # 2. 同時設定「正在玩」與「自定義狀態(便利貼)」
-    # 這裡的 state 是氣泡文字，activity 中的 name 可以設定成正在玩的內容
     activity = discord.Activity(
         type=discord.ActivityType.custom, 
         name="這裡不會顯示", 
         state="慢慢摸索中", 
-        details="正在玩 你的感情" # 部分版本支援在活動詳情顯示
+        details="正在玩 你的感情"
     )
     
-    # 如果要最保險的同時顯示，通常 Discord 會優先顯示 Custom Status 氣泡。
-    # 註：有些 Discord 版本限制一個 Client 只能同時「廣播」一種主要的 Activity。
-    # 為了達成「兩個都要」，我們將氣泡設定為 Custom，並在細節中加入正在玩的資訊。
     await bot.change_presence(status=discord.Status.online, activity=activity)
     
     print(f"掛群機器人已上線：{bot.user}")
@@ -170,16 +166,20 @@ async def leave(interaction: discord.Interaction):
     else:
         await interaction.followup.send("我不在語音頻道 要離開去哪？", ephemeral=True)
 
+# ====== 修正區塊開始 ======
 @tree.command(name="開始標註", description="瘋狂轟炸某人")
 @app_commands.describe(target="對象", 內容="內容", 次數="次數 (不填則直至機器人下線或使用者使用停止指令)")
 async def start_tag(interaction: discord.Interaction, target: discord.Member, 內容: str, 次數: int | None = None):
+    # 資料儲存使用中文變數「內容」
     tag_targets[interaction.guild_id] = {
         "user_id": target.id,
-        "content": 內容,
+        "content": 內容,  
         "channel_id": interaction.channel_id,
         "count": 次數
     }
-    await interaction.response.send_message(f"開始轟炸 {target.mention}！內容：{content}")
+    # 回覆訊息修正為中文變數「內容」
+    await interaction.response.send_message(f"開始轟炸 {target.mention}！內容：{內容}")
+# ====== 修正區塊結束 ======
 
 @tree.command(name="停止標註", description="停止轟炸")
 async def stop_tag(interaction: discord.Interaction):
@@ -221,4 +221,3 @@ if token:
     bot.run(token)
 else:
     print("錯誤：找不到 DISCORD_TOKEN 環境變數")
-
