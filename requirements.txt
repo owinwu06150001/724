@@ -5,3 +5,5 @@ flask
 ffmpeg-python
 static-ffmpeg
 psutil
+requests
+
