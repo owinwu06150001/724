@@ -110,19 +110,19 @@ class MusicControlView(discord.ui.View):
         button.label = labels[self.manager.mode]
         await interaction.response.edit_message(view=self)
 
-    @discord.ui.button(label="📜 待播清單", style=discord.ButtonStyle.success)
+    @discord.ui.button(label="待播清單", style=discord.ButtonStyle.success)
     async def show_q(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not self.manager.queue: return await interaction.response.send_message("清單為空", ephemeral=True)
         msg = "\n".join([f"{i+1}. {s[1]}" for i, s in enumerate(self.manager.queue[:10])])
         await interaction.response.send_message(f"**待播清單 (前10首):**\n{msg}", ephemeral=True)
 
-    @discord.ui.button(label="🔊 音量+", style=discord.ButtonStyle.gray)
+    @discord.ui.button(label="音量+", style=discord.ButtonStyle.gray)
     async def vol_up(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.manager.volume = min(self.manager.volume + 0.1, 2.0)
         if self.manager.vc.source: self.manager.vc.source.volume = self.manager.volume
         await interaction.response.send_message(f"音量已調至：{int(self.manager.volume*100)}%", ephemeral=True)
 
-    @discord.ui.button(label="🔉 音量-", style=discord.ButtonStyle.gray)
+    @discord.ui.button(label="音量-", style=discord.ButtonStyle.gray)
     async def vol_down(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.manager.volume = max(self.manager.volume - 0.1, 0.0)
         if self.manager.vc.source: self.manager.vc.source.volume = self.manager.volume
@@ -242,7 +242,7 @@ async def setup_stats(interaction: discord.Interaction):
     guild = interaction.guild
     overwrites = {guild.default_role: discord.PermissionOverwrite(connect=False), guild.me: discord.PermissionOverwrite(connect=True, manage_channels=True)}
     try:
-        category = await guild.create_category("📊 伺服器數據", position=0)
+        category = await guild.create_category(" 伺服器數據", position=0)
         total = guild.member_count
         bots = sum(1 for m in guild.members if m.bot)
         c_total = await guild.create_voice_channel(f"全部: {total}", category=category, overwrites=overwrites)
@@ -339,3 +339,4 @@ async def latency(interaction: discord.Interaction):
 
 token = os.environ.get("DISCORD_TOKEN")
 if token: bot.run(token)
+
