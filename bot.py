@@ -6,6 +6,7 @@ import time
 import asyncio
 from server import keep_alive
 import static_ffmpeg
+import psutil  # --- 新增功能：導入 psutil ---
 static_ffmpeg.add_paths() # 這會自動下載 ffmpeg 並加入環境變數
 
 # ===== 啟動 Web 服務（給 Render 用） =====
@@ -25,6 +26,9 @@ stay_channels = {}   # guild_id -> channel_id
 stay_since = {}      # guild_id -> timestamp
 tag_targets = {}     # guild_id -> {"user_id": int, "content": str, "channel_id": int, "count": int|None}
 stats_channels = {}  # 儲存統計頻道 ID
+
+# --- 新增功能：紀錄啟動時的流量初始值 (用於計算本次運行消耗) ---
+boot_net_io = psutil.net_io_counters()
 
 # ===== 播放音檔設定 (需要 FFmpeg) =====
 FFMPEG_OPTIONS = {
@@ -48,6 +52,13 @@ def format_duration(seconds: int) -> str:
     parts.append(f"{seconds} 秒")
 
     return " ".join(parts)
+
+# --- 新增功能：將 bytes 轉換為直觀的 KB, MB, GB ---
+def get_size(bytes):
+    for unit in ['', 'K', 'M', 'G', 'T', 'P']:
+        if bytes < 1024:
+            return f"{bytes:.2f} {unit}B"
+        bytes /= 1024
 
 def get_usage_text():
     bot_mention = bot.user.mention if bot.user else "@機器人"
@@ -332,10 +343,21 @@ async def status(interaction: discord.Interaction):
     duration_text = format_duration(int(time.time() - start_time)) if start_time else "未知"
     latency_ms = round(bot.latency * 1000)
 
+    # --- 新增功能：計算流量與記憶體 (自啟動後) ---
+    current_io = psutil.net_io_counters()
+    sent = current_io.bytes_sent - boot_net_io.bytes_sent
+    recv = current_io.bytes_recv - boot_net_io.bytes_recv
+    process = psutil.Process(os.getpid())
+    mem_used = process.memory_info().rss / (1024 * 1024) # 轉為 MB
+
     await interaction.followup.send(
         f"目前在 **{channel.name if channel else '未知'}** 竊聽中\n"
         f"已竊聽 **{duration_text}**\n"
-        f"延遲：{latency_ms} ms",
+        f"延遲：{latency_ms} ms\n"
+        f"--- 系統資源 ---\n"
+        f"記憶體佔用：{mem_used:.2f} MB\n"
+        f"本次累計上傳：{get_size(sent)}\n"
+        f"本次累計下載：{get_size(recv)}",
         ephemeral=True
     )
 
