@@ -15,7 +15,7 @@ keep_alive()
 intents = discord.Intents.default()
 intents.message_content = True
 intents.voice_states = True
-intents.members = True
+intents.members = True # 用於偵測新成員加入伺服器
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 tree = bot.tree
@@ -64,6 +64,7 @@ def get_usage_text():
         "* **/使用方式**：顯示此幫助選單。\n\n"
         "### 小提醒\n"
         "* 機器人每 30 秒會自動檢查連線，斷線會自動連回。"
+        "* 此bot兼有人進來時會自動歡迎。"
     )
 
 # ===== Bot Ready =====
@@ -71,7 +72,7 @@ def get_usage_text():
 async def on_ready():
     await tree.sync()
     
-    # 2. 同時設定「正在玩」與「自定義狀態(便利貼)」
+    # 設定自定義狀態
     activity = discord.Activity(
         type=discord.ActivityType.custom, 
         name="這裡不會顯示", 
@@ -81,10 +82,9 @@ async def on_ready():
     
     await bot.change_presence(status=discord.Status.online, activity=activity)
     
-    print(f"掛群機器人已上線：{bot.user}")
-    print(f"狀態已設定：氣泡顯示「慢慢摸索中」")
+    print(f"機器人已上線：{bot.user}")
     
-    # 3. 啟動循環任務
+    # 啟動循環任務
     if not check_connection.is_running():
         check_connection.start()
     if not tagging_task.is_running():
@@ -99,6 +99,26 @@ async def on_message(message):
         await message.channel.send(get_usage_text())
     await bot.process_commands(message)
 
+# ==========================================
+# ===== 成員加入伺服器時：發送文字歡迎訊息 =====
+# ==========================================
+@bot.event
+async def on_member_join(member):
+    # 獲取伺服器的系統預設頻道（通常是 #一般 或 #welcome）
+    channel = member.guild.system_channel
+    
+    if channel is not None:
+        # 取得伺服器總人數
+        total_members = member.guild.member_count
+        
+        # 發送文字歡迎
+        await channel.send(
+            f"歡迎 {member.mention} 加入 **{member.guild.name}**\n"
+            f"你是本伺服器的第 **{total_members}** 位成員"
+        )
+
+# ==========================================
+
 # ===== 循環任務 1：自動重連 (每 30 秒) =====
 @tasks.loop(seconds=30)
 async def check_connection():
@@ -109,7 +129,8 @@ async def check_connection():
         channel = bot.get_channel(channel_id)
         if channel:
             try:
-                await channel.connect(self_deaf=True, self_mute=True)
+                # 設定不靜音以利播放功能
+                await channel.connect(self_deaf=True, self_mute=False)
                 print(f"已自動重連：{guild.name}")
             except Exception as e:
                 print(f"重連失敗 ({guild.name}): {e}")
@@ -141,7 +162,7 @@ async def tagging_task():
 async def usage(interaction: discord.Interaction):
     await interaction.response.send_message(get_usage_text())
 
-@tree.command(name="加入", description="加入語音頻道")
+@tree.command(name="加入", description="讓機器人進入語音頻道掛機")
 @app_commands.describe(channel="要加入的語音頻道（可不選）")
 async def join(interaction: discord.Interaction, channel: discord.VoiceChannel | None = None):
     await interaction.response.defer(thinking=True)
@@ -156,11 +177,11 @@ async def join(interaction: discord.Interaction, channel: discord.VoiceChannel |
     if guild.voice_client:
         await guild.voice_client.move_to(channel)
     else:
-        await channel.connect(self_deaf=True, self_mute=True)
+        await channel.connect(self_deaf=True, self_mute=False)
 
     stay_channels[guild.id] = channel.id
     stay_since[guild.id] = time.time()
-    await interaction.followup.send(f"我進來 **{channel.name}** 竊聽了")
+    await interaction.followup.send(f"我進來 **{channel.name}** 蹲點了")
 
 @tree.command(name="離開", description="讓機器人離開語音頻道")
 async def leave(interaction: discord.Interaction):
@@ -174,36 +195,32 @@ async def leave(interaction: discord.Interaction):
     else:
         await interaction.followup.send("我不在語音頻道 要離開去哪？", ephemeral=True)
 
-# ====== 新增：播放功能 ======
-@tree.command(name="播放", description="直接上傳音檔 (mp3, ogg, m4a) 讓機器人播放")
+@tree.command(name="播放", description="直接上傳音檔 (mp3, ogg, m4a) 進行播放")
 @app_commands.describe(檔案="請選擇要上傳的音檔")
 async def play_file(interaction: discord.Interaction, 檔案: discord.Attachment):
     await interaction.response.defer(thinking=True)
     
-    # 檢查檔案格式
     ext = 檔案.filename.lower()
-    if not (ext.endswith('.mp3') or ext.endswith('.ogg') or ext.endswith('.m4a')):
-        return await interaction.followup.send("❌ 格式不支援！請上傳 mp3, ogg 或 m4a 檔案。", ephemeral=True)
+    if not any(ext.endswith(i) for i in ['.mp3', '.ogg', '.m4a', '.wav']):
+        return await interaction.followup.send("❌ 格式不支援！請上傳音檔。", ephemeral=True)
 
     guild = interaction.guild
-    # 檢查使用者是否在語音頻道
     if not interaction.user.voice:
         return await interaction.followup.send("❌ 你必須先進入一個語音頻道！", ephemeral=True)
     
     try:
-        # 連線到語音
         if not guild.voice_client:
-            vc = await interaction.user.voice.channel.connect(self_deaf=True, self_mute=True)
+            vc = await interaction.user.voice.channel.connect(self_deaf=True, self_mute=False)
             stay_channels[guild.id] = interaction.user.voice.channel.id
             stay_since[guild.id] = time.time()
         else:
             vc = guild.voice_client
+            # 確保機器人未被靜音
+            await guild.me.edit(mute=False)
 
-        # 如果正在播放，先停止
         if vc.is_playing():
             vc.stop()
 
-        # 播放檔案
         source = discord.FFmpegPCMAudio(檔案.url, **FFMPEG_OPTIONS)
         vc.play(source, after=lambda e: print(f"播放結束: {e}") if e else None)
         
@@ -220,22 +237,19 @@ async def stop_audio(interaction: discord.Interaction):
         await interaction.response.send_message("⏹️ 已停止播放。")
     else:
         await interaction.response.send_message("目前沒有正在播放的音檔。", ephemeral=True)
-# ===========================
 
-@tree.command(name="開始標註", description="瘋狂轟炸某人")
-@app_commands.describe(target="對象", 內容="內容", 次數="次數 (不填則直至機器人下線或使用者使用停止指令)")
+@tree.command(name="開始標註", description="瘋狂標註某人")
+@app_commands.describe(target="對象", 內容="內容", 次數="次數 (不填則持續標註)")
 async def start_tag(interaction: discord.Interaction, target: discord.Member, 內容: str, 次數: int | None = None):
-    # 資料儲存使用中文變數「內容」
     tag_targets[interaction.guild.id] = {
         "user_id": target.id,
         "content": 內容,  
         "channel_id": interaction.channel_id,
         "count": 次數
     }
-    # 回覆訊息修正為中文變數「內容」
     await interaction.response.send_message(f"開始轟炸 {target.mention}！內容：{內容}")
 
-@tree.command(name="停止標註", description="停止轟炸")
+@tree.command(name="停止標註", description="停止目前的標註任務")
 async def stop_tag(interaction: discord.Interaction):
     if interaction.guild_id in tag_targets:
         tag_targets.pop(interaction.guild_id)
@@ -243,7 +257,7 @@ async def stop_tag(interaction: discord.Interaction):
     else:
         await interaction.response.send_message("目前沒有正在進行的轟炸任務。", ephemeral=True)
 
-@tree.command(name="狀態", description="查看掛機狀態")
+@tree.command(name="狀態", description="查看掛機與延遲狀態")
 async def status(interaction: discord.Interaction):
     await interaction.response.defer(thinking=True)
     guild = interaction.guild
@@ -264,7 +278,7 @@ async def status(interaction: discord.Interaction):
         ephemeral=True
     )
 
-@tree.command(name="延遲", description="檢查延遲")
+@tree.command(name="延遲", description="檢查機器人延遲")
 async def latency(interaction: discord.Interaction):
     await interaction.response.defer(thinking=True)
     await interaction.followup.send(f"本公子的延遲為: {round(bot.latency * 1000)} ms", ephemeral=True)
@@ -275,4 +289,3 @@ if token:
     bot.run(token)
 else:
     print("錯誤：找不到 DISCORD_TOKEN 環境變數")
-
