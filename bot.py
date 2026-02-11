@@ -24,6 +24,7 @@ tree = bot.tree
 stay_channels = {}   # guild_id -> channel_id
 stay_since = {}      # guild_id -> timestamp
 tag_targets = {}     # guild_id -> {"user_id": int, "content": str, "channel_id": int, "count": int|None}
+stats_channels = {}  # 新增：儲存統計頻道 ID
 
 # ===== 播放音檔設定 (需要 FFmpeg) =====
 FFMPEG_OPTIONS = {
@@ -55,6 +56,7 @@ def get_usage_text():
         "本機器人為 **24/7 語音掛機** 設計 具備30秒自動重連機制。\n\n"
         "### 指令列表\n"
         "* **/加入 `[頻道]`**：讓機器人進入語音頻道（可不選，預設進入你所在的頻道）。\n"
+        "* **/設定統計頻道**：建立自動更新人數的統計頻道。\n"
         "* **/播放 `[檔案]`**：**直接上傳** mp3, ogg, m4a 檔案進行播放。\n"
         "* **/停止播放**：停止目前播放的音檔。\n"
         "* **/離開**：讓機器人退出語音頻道並停止掛機。\n"
@@ -89,6 +91,9 @@ async def on_ready():
         check_connection.start()
     if not tagging_task.is_running():
         tagging_task.start()
+    # 新增：啟動人數統計任務
+    if not update_member_stats.is_running():
+        update_member_stats.start()
 
 # ===== 功能：標註機器人回覆用法 =====
 @bot.event
@@ -104,18 +109,23 @@ async def on_message(message):
 # ==========================================
 @bot.event
 async def on_member_join(member):
-    # 獲取伺服器的系統預設頻道（通常是 #一般 或 #welcome）
+    # 獲取伺服器的系統預設頻道
     channel = member.guild.system_channel
     
     if channel is not None:
-        # 取得伺服器總人數
         total_members = member.guild.member_count
-        
-        # 發送文字歡迎
         await channel.send(
             f"歡迎 {member.mention} 加入 **{member.guild.name}**\n"
             f"你是本伺服器的第 **{total_members}** 位成員"
         )
+    
+    # 人數變動時嘗試更新統計頻道
+    await update_stats_logic(member.guild)
+
+@bot.event
+async def on_member_remove(member):
+    # 人數變動時嘗試更新統計頻道
+    await update_stats_logic(member.guild)
 
 # ==========================================
 
@@ -129,7 +139,6 @@ async def check_connection():
         channel = bot.get_channel(channel_id)
         if channel:
             try:
-                # 設定不靜音以利播放功能
                 await channel.connect(self_deaf=True, self_mute=False)
                 print(f"已自動重連：{guild.name}")
             except Exception as e:
@@ -156,7 +165,51 @@ async def tagging_task():
         except:
             pass
 
+# ===== 新增循環任務 3：更新人數統計 (每 10 分鐘) =====
+async def update_stats_logic(guild):
+    if guild.id not in stats_channels:
+        return
+    channels = stats_channels[guild.id]
+    total = guild.member_count
+    bots = sum(1 for m in guild.members if m.bot)
+    mapping = {
+        "total": f"全部: {total}",
+        "members": f"Members: {total - bots}",
+        "bots": f"Bots: {bots}"
+    }
+    for key, new_name in mapping.items():
+        channel = bot.get_channel(channels.get(key))
+        if channel and channel.name != new_name:
+            try: await channel.edit(name=new_name)
+            except: pass
+
+@tasks.loop(minutes=10)
+async def update_member_stats():
+    for guild in bot.guilds:
+        await update_stats_logic(guild)
+
 # ===== Slash Commands =====
+
+@tree.command(name="設定統計頻道", description="建立顯示伺服器人數的統計頻道")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def setup_stats(interaction: discord.Interaction):
+    await interaction.response.defer(thinking=True)
+    guild = interaction.guild
+    overwrites = {
+        guild.default_role: discord.PermissionOverwrite(connect=False),
+        guild.me: discord.PermissionOverwrite(connect=True, manage_channels=True)
+    }
+    try:
+        category = await guild.create_category("📊 伺服器人數", position=0)
+        total = guild.member_count
+        bots = sum(1 for m in guild.members if m.bot)
+        c_total = await guild.create_voice_channel(f"全部: {total}", category=category, overwrites=overwrites)
+        c_members = await guild.create_voice_channel(f"Members: {total - bots}", category=category, overwrites=overwrites)
+        c_bots = await guild.create_voice_channel(f"Bots: {bots}", category=category, overwrites=overwrites)
+        stats_channels[guild.id] = {"total": c_total.id, "members": c_members.id, "bots": c_bots.id}
+        await interaction.followup.send("✅ 統計頻道已建立！")
+    except Exception as e:
+        await interaction.followup.send(f"建立失敗：{e}")
 
 @tree.command(name="使用方式", description="顯示機器人的指令列表與詳細用法")
 async def usage(interaction: discord.Interaction):
@@ -257,7 +310,7 @@ async def stop_tag(interaction: discord.Interaction):
     else:
         await interaction.response.send_message("目前沒有正在進行的轟炸任務。", ephemeral=True)
 
-@tree.command(name="狀態", description="查看掛機與延遲狀態")
+@tree.command(name="狀態", description="檢查掛機與延遲狀態")
 async def status(interaction: discord.Interaction):
     await interaction.response.defer(thinking=True)
     guild = interaction.guild
@@ -289,6 +342,3 @@ if token:
     bot.run(token)
 else:
     print("錯誤：找不到 DISCORD_TOKEN 環境變數")
-
-
-
