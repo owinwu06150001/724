@@ -200,14 +200,14 @@ async def setup_stats(interaction: discord.Interaction):
         guild.me: discord.PermissionOverwrite(connect=True, manage_channels=True)
     }
     try:
-        category = await guild.create_category("📊 伺服器人數", position=0)
+        category = await guild.create_category("伺服器人數", position=0)
         total = guild.member_count
         bots = sum(1 for m in guild.members if m.bot)
         c_total = await guild.create_voice_channel(f"全部: {total}", category=category, overwrites=overwrites)
-        c_members = await guild.create_voice_channel(f"Members: {total - bots}", category=category, overwrites=overwrites)
+        c_members = await guild.create_voice_channel(f"人類: {total - bots}", category=category, overwrites=overwrites)
         c_bots = await guild.create_voice_channel(f"Bots: {bots}", category=category, overwrites=overwrites)
         stats_channels[guild.id] = {"total": c_total.id, "members": c_members.id, "bots": c_bots.id}
-        await interaction.followup.send("✅ 統計頻道已建立！")
+        await interaction.followup.send("統計頻道已建立！")
     except Exception as e:
         await interaction.followup.send(f"建立失敗：{e}")
 
@@ -342,3 +342,4 @@ if token:
     bot.run(token)
 else:
     print("錯誤：找不到 DISCORD_TOKEN 環境變數")
+
