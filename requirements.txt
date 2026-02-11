@@ -4,3 +4,4 @@ yt-dlp
 flask
 ffmpeg-python
 static-ffmpeg
+psutil
