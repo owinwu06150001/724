@@ -181,7 +181,7 @@ async def join(interaction: discord.Interaction, channel: discord.VoiceChannel |
 
     stay_channels[guild.id] = channel.id
     stay_since[guild.id] = time.time()
-    await interaction.followup.send(f"我進來 **{channel.name}** 蹲點了")
+    await interaction.followup.send(f"我進來 **{channel.name}** 竊聽了")
 
 @tree.command(name="離開", description="讓機器人離開語音頻道")
 async def leave(interaction: discord.Interaction):
@@ -202,11 +202,11 @@ async def play_file(interaction: discord.Interaction, 檔案: discord.Attachment
     
     ext = 檔案.filename.lower()
     if not any(ext.endswith(i) for i in ['.mp3', '.ogg', '.m4a', '.wav']):
-        return await interaction.followup.send("❌ 格式不支援！請上傳音檔。", ephemeral=True)
+        return await interaction.followup.send("格式不支援！請上傳音檔。", ephemeral=True)
 
     guild = interaction.guild
     if not interaction.user.voice:
-        return await interaction.followup.send("❌ 你必須先進入一個語音頻道！", ephemeral=True)
+        return await interaction.followup.send("你必須先進入一個語音頻道！", ephemeral=True)
     
     try:
         if not guild.voice_client:
@@ -224,17 +224,17 @@ async def play_file(interaction: discord.Interaction, 檔案: discord.Attachment
         source = discord.FFmpegPCMAudio(檔案.url, **FFMPEG_OPTIONS)
         vc.play(source, after=lambda e: print(f"播放結束: {e}") if e else None)
         
-        await interaction.followup.send(f"🎶 正在播放：**{檔案.filename}**")
+        await interaction.followup.send(f"正在播放：**{檔案.filename}**")
         
     except Exception as e:
-        await interaction.followup.send(f"❌ 播放失敗：{e}")
+        await interaction.followup.send(f"播放失敗：{e}")
 
 @tree.command(name="停止播放", description="停止目前播放的音檔")
 async def stop_audio(interaction: discord.Interaction):
     vc = interaction.guild.voice_client
     if vc and vc.is_playing():
         vc.stop()
-        await interaction.response.send_message("⏹️ 已停止播放。")
+        await interaction.response.send_message("已停止播放。")
     else:
         await interaction.response.send_message("目前沒有正在播放的音檔。", ephemeral=True)
 
@@ -289,4 +289,5 @@ if token:
     bot.run(token)
 else:
     print("錯誤：找不到 DISCORD_TOKEN 環境變數")
+
 
