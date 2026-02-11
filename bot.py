@@ -85,7 +85,7 @@ class MusicManager:
     async def update_panel(self):
         """更新 Discord 上的控制面板 Embed"""
         if not self.message: return
-        embed = discord.Embed(title="🎵 音樂播放中", color=0xaa96da)
+        embed = discord.Embed(title=" 音樂播放中", color=0xaa96da)
         if self.current:
             embed.description = f"正在播放：**{self.current[1]}**"
         else:
@@ -143,14 +143,14 @@ class MusicControlView(discord.ui.View):
         await interaction.response.edit_message(view=self)
         await self.manager.update_panel() # 更新顯示文字
 
-    @discord.ui.button(label="音量+", style=discord.ButtonStyle.gray)
+    @discord.ui.button(label="音量 +", style=discord.ButtonStyle.gray)
     async def vol_up(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.manager.volume = min(self.manager.volume + 0.1, 2.0)
         if self.manager.vc.source: self.manager.vc.source.volume = self.manager.volume
         await interaction.response.edit_message(view=self)
         await self.manager.update_panel()
 
-    @discord.ui.button(label="音量-", style=discord.ButtonStyle.gray)
+    @discord.ui.button(label="音量 -", style=discord.ButtonStyle.gray)
     async def vol_down(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.manager.volume = max(self.manager.volume - 0.1, 0.0)
         if self.manager.vc.source: self.manager.vc.source.volume = self.manager.volume
@@ -286,20 +286,20 @@ async def system_status(interaction: discord.Interaction):
     
     # 格式化流量顯示
     traffic_text = (
-        f"⬆️ 上傳: {sent:.2f} MB\n"
-        f"⬇️ 下載: {recv:.2f} MB"
+        f" 上傳: {sent:.2f} MB\n"
+        f" 下載: {recv:.2f} MB"
     )
     if sent > 1024 or recv > 1024: 
-        traffic_text = f"⬆️ 上傳: {sent/1024:.2f} GB\n⬇️ 下載: {recv/1024:.2f} GB"
+        traffic_text = f" 上傳: {sent/1024:.2f} GB\n 下載: {recv/1024:.2f} GB"
 
     # 獲取 IP
     ip_addr = get_public_ip()
 
-    embed = discord.Embed(title="🖥️ 伺服器系統狀態", color=0x5865F2)
-    embed.add_field(name="📍 伺服器 IP", value=f"`{ip_addr}`", inline=False)
-    embed.add_field(name="🧠 CPU 使用率", value=f"`{cpu_usage}%`", inline=True)
-    embed.add_field(name="📟 RAM 使用率", value=f"`{ram_usage}% ({ram.used//(1024**2)}MB / {ram.total//(1024**2)}MB)`", inline=True)
-    embed.add_field(name="📊 網路總流量 (自啟動起)", value=f"```{traffic_text}```", inline=False)
+    embed = discord.Embed(title=" 伺服器系統狀態", color=0x5865F2)
+    embed.add_field(name=" 伺服器 IP", value=f"`{ip_addr}`", inline=False)
+    embed.add_field(name=" CPU 使用率", value=f"`{cpu_usage}%`", inline=True)
+    embed.add_field(name=" RAM 使用率", value=f"`{ram_usage}% ({ram.used//(1024**2)}MB / {ram.total//(1024**2)}MB)`", inline=True)
+    embed.add_field(name=" 網路總流量 (自啟動起)", value=f"```{traffic_text}```", inline=False)
     
     embed.set_footer(text=f"機器人延遲: {round(bot.latency * 1000)}ms")
     
@@ -335,7 +335,7 @@ async def join(interaction: discord.Interaction, channel: discord.VoiceChannel |
     else: await channel.connect(self_deaf=True, self_mute=False)
     stay_channels[interaction.guild.id] = channel.id
     stay_since[interaction.guild.id] = time.time()
-    await interaction.followup.send(f"我進來 **{channel.name}** 了")
+    await interaction.followup.send(f"我進來 **{channel.name}** 竊聽了")
 
 @tree.command(name="離開", description="讓機器人離開語音頻道")
 async def leave(interaction: discord.Interaction):
@@ -411,3 +411,4 @@ async def status(interaction: discord.Interaction):
 
 token = os.environ.get("DISCORD_TOKEN")
 if token: bot.run(token)
+
