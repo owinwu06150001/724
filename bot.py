@@ -15,7 +15,7 @@ keep_alive()
 intents = discord.Intents.default()
 intents.message_content = True
 intents.voice_states = True
-intents.members = True # 用於偵測新成員加入伺服器
+intents.members = True # 用於偵測新成員與獲取準確人數
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 tree = bot.tree
@@ -24,7 +24,7 @@ tree = bot.tree
 stay_channels = {}   # guild_id -> channel_id
 stay_since = {}      # guild_id -> timestamp
 tag_targets = {}     # guild_id -> {"user_id": int, "content": str, "channel_id": int, "count": int|None}
-stats_channels = {}  # 新增：儲存統計頻道 ID
+stats_channels = {}  # 儲存統計頻道 ID
 
 # ===== 播放音檔設定 (需要 FFmpeg) =====
 FFMPEG_OPTIONS = {
@@ -60,14 +60,38 @@ def get_usage_text():
         "* **/播放 `[檔案]`**：**直接上傳** mp3, ogg, m4a 檔案進行播放。\n"
         "* **/停止播放**：停止目前播放的音檔。\n"
         "* **/離開**：讓機器人退出語音頻道並停止掛機。\n"
-        "* **/開始標註 `[成員]` `[內容]` `[次數]`**：瘋狂轟炸某人（次數不填則直至機器人下線或使用者使用停止指令）。\n"
+        "* **/開始標註 `[成員]` `[內容]` `[次數]`**：瘋狂轟炸某人。\n"
         "* **/停止標註**：結束目前的轟炸。\n"
         "* **/狀態**：查看目前掛機頻道、已掛機時間與延遲。\n"
         "* **/使用方式**：顯示此幫助選單。\n\n"
         "### 小提醒\n"
         "* 機器人每 30 秒會自動檢查連線，斷線會自動連回。\n"
-        "* 此bot兼有人進來時會自動歡迎。"
+        "* 此bot具備 Embed 歡迎訊息與人數統計功能。"
     )
+
+# --- [工具] 更新統計頻道邏輯 ---
+async def update_stats_logic(guild):
+    if guild.id not in stats_channels:
+        return
+    channels = stats_channels[guild.id]
+    total = guild.member_count
+    bots = sum(1 for m in guild.members if m.bot)
+    mapping = {
+        "total": f"全部: {total}",
+        "members": f"Members: {total - bots}",
+        "bots": f"Bots: {bots}"
+    }
+    for key, new_name in mapping.items():
+        channel = bot.get_channel(channels.get(key))
+        if channel and channel.name != new_name:
+            try: await channel.edit(name=new_name)
+            except: pass
+
+# --- [任務] 每 10 分鐘強制更新一次 ---
+@tasks.loop(minutes=10)
+async def update_member_stats():
+    for guild in bot.guilds:
+        await update_stats_logic(guild)
 
 # ===== Bot Ready =====
 @bot.event
@@ -91,7 +115,6 @@ async def on_ready():
         check_connection.start()
     if not tagging_task.is_running():
         tagging_task.start()
-    # 新增：啟動人數統計任務
     if not update_member_stats.is_running():
         update_member_stats.start()
 
@@ -105,26 +128,31 @@ async def on_message(message):
     await bot.process_commands(message)
 
 # ==========================================
-# ===== 成員加入伺服器時：發送文字歡迎訊息 =====
+# ===== [更新] 成員加入：Embed 歡迎訊息 =====
 # ==========================================
 @bot.event
 async def on_member_join(member):
-    # 獲取伺服器的系統預設頻道
     channel = member.guild.system_channel
-    
     if channel is not None:
         total_members = member.guild.member_count
-        await channel.send(
-            f"歡迎 {member.mention} 加入 **{member.guild.name}**\n"
-            f"你是本伺服器的第 **{total_members}** 位成員"
+        
+        # 建立 Embed (對應圖片樣式)
+        embed = discord.Embed(
+            title=f"歡迎加入 {member.guild.name}",
+            description=f"{member.mention}",
+            color=discord.Color.from_rgb(255, 105, 180) # 粉色系
         )
+        embed.set_thumbnail(url=member.display_avatar.url)
+        embed.set_footer(text=f"你是本伺服器的第 {total_members} 位成員")
+        
+        await channel.send(embed=embed)
     
-    # 人數變動時嘗試更新統計頻道
+    # 即時更新統計頻道
     await update_stats_logic(member.guild)
 
 @bot.event
 async def on_member_remove(member):
-    # 人數變動時嘗試更新統計頻道
+    # 成員離開時也即時更新統計頻道
     await update_stats_logic(member.guild)
 
 # ==========================================
@@ -165,29 +193,6 @@ async def tagging_task():
         except:
             pass
 
-# ===== 新增循環任務 3：更新人數統計 (每 10 分鐘) =====
-async def update_stats_logic(guild):
-    if guild.id not in stats_channels:
-        return
-    channels = stats_channels[guild.id]
-    total = guild.member_count
-    bots = sum(1 for m in guild.members if m.bot)
-    mapping = {
-        "total": f"全部: {total}",
-        "members": f"Members: {total - bots}",
-        "bots": f"Bots: {bots}"
-    }
-    for key, new_name in mapping.items():
-        channel = bot.get_channel(channels.get(key))
-        if channel and channel.name != new_name:
-            try: await channel.edit(name=new_name)
-            except: pass
-
-@tasks.loop(minutes=10)
-async def update_member_stats():
-    for guild in bot.guilds:
-        await update_stats_logic(guild)
-
 # ===== Slash Commands =====
 
 @tree.command(name="設定統計頻道", description="建立顯示伺服器人數的統計頻道")
@@ -200,14 +205,18 @@ async def setup_stats(interaction: discord.Interaction):
         guild.me: discord.PermissionOverwrite(connect=True, manage_channels=True)
     }
     try:
-        category = await guild.create_category("伺服器人數", position=0)
+        # 建立大標題類別
+        category = await guild.create_category(" 伺服器數據", position=0)
         total = guild.member_count
         bots = sum(1 for m in guild.members if m.bot)
+        
+        # 建立鎖頭統計語音頻道
         c_total = await guild.create_voice_channel(f"全部: {total}", category=category, overwrites=overwrites)
         c_members = await guild.create_voice_channel(f"人類: {total - bots}", category=category, overwrites=overwrites)
         c_bots = await guild.create_voice_channel(f"Bots: {bots}", category=category, overwrites=overwrites)
+        
         stats_channels[guild.id] = {"total": c_total.id, "members": c_members.id, "bots": c_bots.id}
-        await interaction.followup.send("統計頻道已建立！")
+        await interaction.followup.send("統計頻道與 Embed 歡迎功能已準備就緒！")
     except Exception as e:
         await interaction.followup.send(f"建立失敗：{e}")
 
@@ -268,7 +277,6 @@ async def play_file(interaction: discord.Interaction, 檔案: discord.Attachment
             stay_since[guild.id] = time.time()
         else:
             vc = guild.voice_client
-            # 確保機器人未被靜音
             await guild.me.edit(mute=False)
 
         if vc.is_playing():
@@ -342,4 +350,3 @@ if token:
     bot.run(token)
 else:
     print("錯誤：找不到 DISCORD_TOKEN 環境變數")
-
