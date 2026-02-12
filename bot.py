@@ -16,10 +16,12 @@ static_ffmpeg.add_paths()
 keep_alive()
 
 # ===== Intents =====
+# 必須開啟 members 和 presences 才能準確偵測在線狀態
 intents = discord.Intents.default()
 intents.message_content = True
 intents.voice_states = True
 intents.members = True
+intents.presences = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 tree = bot.tree
@@ -170,19 +172,19 @@ def get_usage_text():
         f"## {bot_mention} 使用手冊\n"
         "本機器人為 24/7 語音掛機 設計 具備30秒自動重連機制。\n\n"
         "### 指令列表\n"
-        "* /加入 [頻道]：讓機器人進入語音頻道（可不選，預設進入你所在的頻道）。\n"
-        "* /設定統計頻道：建立自動更新人數的統計頻道。\n"
-        "* /播放 [檔案]：直接上傳 mp3, ogg, m4a 檔案進行播放。\n"
+        "* /加入 [頻道]：讓機器人進入語音頻道。\n"
+        "* /設定統計頻道：建立自動更新人數（含在線人數）的統計頻道。\n"
+        "* /播放 [檔案]：上傳音檔播放。\n"
         "* /系統狀態：查看硬體資訊。\n"
-        "* /停止播放：停止目前播放的音檔。\n"
-        "* /離開：讓機器人退出語音頻道並停止掛機。\n"
-        "* /開始標註 [成員] [內容] [次數]：瘋狂轟炸某人。\n"
-        "* /停止標註：結束目前的轟炸。\n"
-        "* /狀態：查看目前掛機頻道、已掛機時間與延遲。\n"
-        "* /移除身分組 [成員] [身分組]：將某人的身分組拔掉。\n"
-        "* /給予身分組 [成員] [身分組]：給予某人特定的身分組。\n"
-        "* /查看審核日誌 [筆數]：查看伺服器最近的操作紀錄。\n"
-        "* /使用方式：顯示此幫助選單。"
+        "* /停止播放：停止目前播放。\n"
+        "* /離開：機器人退出語音頻道。\n"
+        "* /開始標註 [成員] [內容] [次數]：標註功能。\n"
+        "* /停止標註：結束標註任務。\n"
+        "* /狀態：查看掛機時間與延遲。\n"
+        "* /移除身分組 [成員] [身分組]：拔掉某人身分組。\n"
+        "* /給予身分組 [成員] [身分組]：給予某人身分組。\n"
+        "* /查看審核日誌 [筆數]：查看操作紀錄。\n"
+        "* /使用方式：顯示此選單。"
     )
 
 async def update_stats_logic(guild):
@@ -190,12 +192,22 @@ async def update_stats_logic(guild):
     channels = stats_channels[guild.id]
     total = guild.member_count
     bots = sum(1 for m in guild.members if m.bot)
-    mapping = {"total": f"全部: {total}", "members": f"成員: {total - bots}", "bots": f"機器人: {bots}"}
+    # 計算在線人數 (不含機器人，且狀態不是 offline)
+    online = sum(1 for m in guild.members if not m.bot and m.status != discord.Status.offline)
+    
+    mapping = {
+        "total": f"全部人數: {total}", 
+        "members": f"成員人數: {total - bots}", 
+        "online": f"在線成員: {online}",
+        "bots": f"機器人: {bots}"
+    }
+    
     for key, new_name in mapping.items():
-        channel = bot.get_channel(channels.get(key))
-        if channel and channel.name != new_name:
-            try: await channel.edit(name=new_name)
-            except: pass
+        if key in channels:
+            channel = bot.get_channel(channels[key])
+            if channel and channel.name != new_name:
+                try: await channel.edit(name=new_name)
+                except: pass
 
 @tasks.loop(minutes=10)
 async def update_member_stats():
@@ -216,6 +228,11 @@ async def on_message(message):
     if message.author.bot: return
     if bot.user and bot.user.mentioned_in(message): await message.channel.send(get_usage_text())
     await bot.process_commands(message)
+
+@bot.event
+async def on_presence_update(before, after):
+    # 當有人改變在線狀態時觸發更新
+    await update_stats_logic(after.guild)
 
 @bot.event
 async def on_member_join(member):
@@ -300,59 +317,7 @@ async def add_role(interaction: discord.Interaction, target: discord.Member, rol
     except Exception as e:
         await interaction.followup.send(f"給予失敗: {e}", ephemeral=True)
 
-@tree.command(name="查看審核日誌", description="查看最近的審核日誌紀錄")
-@app_commands.describe(limit="讀取筆數 (預設5筆)")
-async def view_audit_logs(interaction: discord.Interaction, limit: int = 5):
-    await interaction.response.defer(thinking=True)
-    if not interaction.user.guild_permissions.view_audit_log:
-        return await interaction.followup.send("錯誤：你沒有查看審核日誌的權限。", ephemeral=True)
-    
-    # 動作翻譯對照表
-    action_map = {
-        discord.AuditLogAction.member_role_update: "更動成員身分組",
-        discord.AuditLogAction.member_move: "移動成員頻道",
-        discord.AuditLogAction.role_create: "創建身分組",
-        discord.AuditLogAction.role_delete: "刪除身分組",
-        discord.AuditLogAction.role_update: "更新身分組設定",
-        discord.AuditLogAction.kick: "踢出成員",
-        discord.AuditLogAction.ban: "封鎖成員",
-        discord.AuditLogAction.unban: "解除封鎖",
-        discord.AuditLogAction.bot_add: "新增機器人",
-        discord.AuditLogAction.invite_create: "建立邀請碼",
-        discord.AuditLogAction.member_update: "更新成員資料"
-    }
-
-    log_text = "### 最近審核日誌\n"
-    try:
-        async for entry in interaction.guild.audit_logs(limit=limit):
-            action_name = action_map.get(entry.action, str(entry.action))
-            
-            target_display = entry.target
-            if hasattr(entry.target, "name"):
-                target_display = entry.target.name
-            elif isinstance(entry.target, discord.Object):
-                target_display = f"未知目標 (ID: {entry.target.id})"
-
-            log_text += f"* 執行者: **{entry.user}** | 動作: {action_name} | 目標: {target_display}\n"
-        
-        await interaction.followup.send(log_text)
-    except Exception as e:
-        await interaction.followup.send(f"讀取失敗: {e}", ephemeral=True)
-
-@tree.command(name="系統狀態", description="查看機器人伺服器硬體負載與網路資訊")
-async def system_status(interaction: discord.Interaction):
-    await interaction.response.defer(thinking=True)
-    info = await get_system_info()
-    embed = discord.Embed(title="伺服器硬體狀態", color=0x3498db)
-    embed.add_field(name="CPU 使用率", value=info["cpu"], inline=True)
-    embed.add_field(name="記憶體使用 (RAM)", value=info["ram"], inline=True)
-    embed.add_field(name="網路總流量 (總計)", value=info["net"], inline=False)
-    embed.add_field(name="IP 位址", value=info["ip"], inline=False)
-    latency = f"{round(bot.latency * 1000)} ms"
-    embed.add_field(name="指令延遲", value=latency, inline=True)
-    await interaction.followup.send(embed=embed)
-
-@tree.command(name="設定統計頻道", description="建立顯示伺服器人數的統計頻道")
+@tree.command(name="設定統計頻道", description="建立顯示伺服器人數與在線人數的統計頻道")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def setup_stats(interaction: discord.Interaction):
     await interaction.response.defer(thinking=True)
@@ -362,18 +327,40 @@ async def setup_stats(interaction: discord.Interaction):
         category = await guild.create_category("伺服器數據", position=0)
         total = guild.member_count
         bots = sum(1 for m in guild.members if m.bot)
-        c_total = await guild.create_voice_channel(f"全部: {total}", category=category, overwrites=overwrites)
-        c_members = await guild.create_voice_channel(f"成員: {total - bots}", category=category, overwrites=overwrites)
+        online = sum(1 for m in guild.members if not m.bot and m.status != discord.Status.offline)
+        
+        c_total = await guild.create_voice_channel(f"全部人數: {total}", category=category, overwrites=overwrites)
+        c_members = await guild.create_voice_channel(f"成員人數: {total - bots}", category=category, overwrites=overwrites)
+        c_online = await guild.create_voice_channel(f"在線成員: {online}", category=category, overwrites=overwrites)
         c_bots = await guild.create_voice_channel(f"機器人: {bots}", category=category, overwrites=overwrites)
-        stats_channels[guild.id] = {"total": c_total.id, "members": c_members.id, "bots": c_bots.id}
-        await interaction.followup.send("統計頻道建立完成")
+        
+        stats_channels[guild.id] = {
+            "total": c_total.id, 
+            "members": c_members.id, 
+            "online": c_online.id, 
+            "bots": c_bots.id
+        }
+        await interaction.followup.send("統計頻道（含在線人數）建立完成")
     except Exception as e: await interaction.followup.send(f"建立失敗：{e}")
 
-@tree.command(name="使用方式", description="顯示機器人的指令列表與詳細用法")
+@tree.command(name="系統狀態", description="查看硬體資訊")
+async def system_status(interaction: discord.Interaction):
+    await interaction.response.defer(thinking=True)
+    info = await get_system_info()
+    embed = discord.Embed(title="伺服器硬體狀態", color=0x3498db)
+    embed.add_field(name="CPU 使用率", value=info["cpu"], inline=True)
+    embed.add_field(name="記憶體使用 (RAM)", value=info["ram"], inline=True)
+    embed.add_field(name="網路總流量", value=info["net"], inline=False)
+    embed.add_field(name="IP 位址", value=info["ip"], inline=False)
+    latency = f"{round(bot.latency * 1000)} ms"
+    embed.add_field(name="指令延遲", value=latency, inline=True)
+    await interaction.followup.send(embed=embed)
+
+@tree.command(name="使用方式", description="顯示指令列表")
 async def usage(interaction: discord.Interaction):
     await interaction.response.send_message(get_usage_text())
 
-@tree.command(name="加入", description="讓機器人進入語音頻道掛機")
+@tree.command(name="加入", description="機器人進入語音頻道")
 async def join(interaction: discord.Interaction, channel: discord.VoiceChannel | None = None):
     await interaction.response.defer(thinking=True)
     channel = channel or getattr(interaction.user.voice, 'channel', None)
@@ -384,7 +371,7 @@ async def join(interaction: discord.Interaction, channel: discord.VoiceChannel |
     stay_since[interaction.guild.id] = time.time()
     await interaction.followup.send(f"我進來: {channel.name} 竊聽了")
 
-@tree.command(name="離開", description="讓機器人離開語音頻道")
+@tree.command(name="離開", description="機器人離開語音頻道")
 async def leave(interaction: discord.Interaction):
     await interaction.response.defer(thinking=True)
     if interaction.guild.voice_client:
@@ -395,7 +382,7 @@ async def leave(interaction: discord.Interaction):
         await interaction.followup.send("我走了")
     else: await interaction.followup.send("機器人不在語音頻道中", ephemeral=True)
 
-@tree.command(name="播放", description="直接上傳音檔 (mp3, ogg, m4a) 進行播放")
+@tree.command(name="播放", description="上傳音檔播放")
 async def play_file(interaction: discord.Interaction, 檔案: discord.Attachment):
     await interaction.response.defer(thinking=True)
     if not any(檔案.filename.lower().endswith(i) for i in ['.mp3', '.ogg', '.m4a', '.wav']):
@@ -414,7 +401,7 @@ async def play_file(interaction: discord.Interaction, 檔案: discord.Attachment
     if not mgr.vc.is_playing() and not mgr.vc.is_paused(): mgr.play_next()
     await interaction.followup.send(embed=mgr.get_status_embed(), view=MusicControlView(mgr))
 
-@tree.command(name="停止播放", description="停止目前播放的音檔")
+@tree.command(name="停止播放", description="停止音檔播放")
 async def stop_audio(interaction: discord.Interaction):
     vc = interaction.guild.voice_client
     if vc and vc.is_playing():
@@ -422,7 +409,7 @@ async def stop_audio(interaction: discord.Interaction):
         await interaction.response.send_message("停止播放")
     else: await interaction.response.send_message("沒有正在播放的音檔", ephemeral=True)
 
-@tree.command(name="開始標註", description="瘋狂轟炸某人")
+@tree.command(name="開始標註", description="標註成員")
 async def start_tag(interaction: discord.Interaction, target: discord.Member, 內容: str, 次數: int | None = None):
     await interaction.response.defer(thinking=True)
     tag_targets[interaction.guild.id] = {
@@ -433,14 +420,14 @@ async def start_tag(interaction: discord.Interaction, target: discord.Member, �
     }
     await interaction.followup.send(f"開始標註 {target.mention}")
 
-@tree.command(name="停止標註", description="停止目前的標註任務")
+@tree.command(name="停止標註", description="停止標註任務")
 async def stop_tag(interaction: discord.Interaction):
     if interaction.guild_id in tag_targets:
         tag_targets.pop(interaction.guild_id)
         await interaction.response.send_message("已停止標註")
     else: await interaction.response.send_message("沒有正在進行的標註任務", ephemeral=True)
 
-@tree.command(name="狀態", description="檢查掛機與延遲狀態")
+@tree.command(name="狀態", description="檢查掛機與延遲")
 async def status(interaction: discord.Interaction):
     await interaction.response.defer(thinking=True)
     if interaction.guild_id not in stay_channels: return await interaction.followup.send("機器人未在掛機狀態", ephemeral=True)
