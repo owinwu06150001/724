@@ -307,10 +307,34 @@ async def view_audit_logs(interaction: discord.Interaction, limit: int = 5):
     if not interaction.user.guild_permissions.view_audit_log:
         return await interaction.followup.send("錯誤：你沒有查看審核日誌的權限。", ephemeral=True)
     
+    # 動作翻譯對照表
+    action_map = {
+        discord.AuditLogAction.member_role_update: "更動成員身分組",
+        discord.AuditLogAction.member_move: "移動成員頻道",
+        discord.AuditLogAction.role_create: "創建身分組",
+        discord.AuditLogAction.role_delete: "刪除身分組",
+        discord.AuditLogAction.role_update: "更新身分組設定",
+        discord.AuditLogAction.kick: "踢出成員",
+        discord.AuditLogAction.ban: "封鎖成員",
+        discord.AuditLogAction.unban: "解除封鎖",
+        discord.AuditLogAction.bot_add: "新增機器人",
+        discord.AuditLogAction.invite_create: "建立邀請碼",
+        discord.AuditLogAction.member_update: "更新成員資料"
+    }
+
     log_text = "### 最近審核日誌\n"
     try:
         async for entry in interaction.guild.audit_logs(limit=limit):
-            log_text += f"* 執行者: {entry.user} | 動作: {entry.action} | 目標: {entry.target}\n"
+            action_name = action_map.get(entry.action, str(entry.action))
+            
+            target_display = entry.target
+            if hasattr(entry.target, "name"):
+                target_display = entry.target.name
+            elif isinstance(entry.target, discord.Object):
+                target_display = f"未知目標 (ID: {entry.target.id})"
+
+            log_text += f"* 執行者: **{entry.user}** | 動作: {action_name} | 目標: {target_display}\n"
+        
         await interaction.followup.send(log_text)
     except Exception as e:
         await interaction.followup.send(f"讀取失敗: {e}", ephemeral=True)
