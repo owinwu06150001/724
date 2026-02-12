@@ -320,7 +320,7 @@ async def join(interaction: discord.Interaction, channel: discord.VoiceChannel |
     else: await channel.connect(self_deaf=True, self_mute=False)
     stay_channels[interaction.guild.id] = channel.id
     stay_since[interaction.guild.id] = time.time()
-    await interaction.followup.send(f"已進入頻道: {channel.name}")
+    await interaction.followup.send(f"我進來: {channel.name} 竊聽了")
 
 @tree.command(name="離開", description="讓機器人離開語音頻道")
 async def leave(interaction: discord.Interaction):
@@ -330,7 +330,7 @@ async def leave(interaction: discord.Interaction):
         stay_channels.pop(interaction.guild.id, None)
         stay_since.pop(interaction.guild.id, None)
         queues.pop(interaction.guild.id, None)
-        await interaction.followup.send("已離開語音頻道")
+        await interaction.followup.send("我走了")
     else: await interaction.followup.send("機器人不在語音頻道中", ephemeral=True)
 
 @tree.command(name="播放", description="直接上傳音檔 (mp3, ogg, m4a) 進行播放")
@@ -388,3 +388,4 @@ async def status(interaction: discord.Interaction):
 
 token = os.environ.get("DISCORD_TOKEN")
 if token: bot.run(token)
+
