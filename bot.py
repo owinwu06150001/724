@@ -272,10 +272,10 @@ async def remove_role(interaction: discord.Interaction, target: discord.Member, 
     if role >= interaction.guild.me.top_role:
         return await interaction.followup.send("錯誤：我的權限低於該身分組，無法移除。", ephemeral=True)
     if role not in target.roles:
-        return await interaction.followup.send("錯誤：該成員目前沒有這個身分組。", ephemeral=True)
+        return await interaction.followup.send(f"錯誤：成員 **{target.display_name}** 目前沒有 **{role.name}** 身分組。", ephemeral=True)
     try:
         await target.remove_roles(role)
-        await interaction.followup.send(f"成功移除 {target.display_name} 的 {role.name} 身分組。")
+        await interaction.followup.send(f"成功移除 **{target.display_name}** 的 **{role.name}** 身分組。")
     except Exception as e:
         await interaction.followup.send(f"移除失敗: {e}", ephemeral=True)
 
@@ -293,10 +293,10 @@ async def add_role(interaction: discord.Interaction, target: discord.Member, rol
     if role >= interaction.guild.me.top_role:
         return await interaction.followup.send("錯誤：我的權限低於該身分組，無法給予。", ephemeral=True)
     if role in target.roles:
-        return await interaction.followup.send("錯誤：該成員已經擁有這個身分組。", ephemeral=True)
+        return await interaction.followup.send(f"錯誤：成員 **{target.display_name}** 已經擁有 **{role.name}** 身分組。", ephemeral=True)
     try:
         await target.add_roles(role)
-        await interaction.followup.send(f"成功給予 {target.display_name} {role.name} 身分組。")
+        await interaction.followup.send(f"成功給予 **{target.display_name}** **{role.name}** 身分組。")
     except Exception as e:
         await interaction.followup.send(f"給予失敗: {e}", ephemeral=True)
 
