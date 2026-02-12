@@ -48,7 +48,7 @@ AUDIT_LOG_ACTIONS_CN = {
 }
 
 # =========================================================
-# ===== 音樂管理系統 (含循環邏輯) =====
+# ===== 音樂管理系統 (含單曲/歌單循環) =====
 # =========================================================
 class MusicManager:
     def __init__(self, guild_id):
@@ -74,16 +74,12 @@ class MusicManager:
     def play_next(self, error=None):
         if not self.vc or not self.vc.is_connected(): return
         
-        # 循環邏輯處理
         if self.current:
             if self.mode == "single":
-                # 單曲循環：把剛播完的歌塞回隊列最前面
                 self.queue.insert(0, self.current)
             elif self.mode == "all":
-                # 歌單循環：把剛播完的歌塞回隊列最後面
                 self.queue.append(self.current)
             else:
-                # 不循環：存入歷史紀錄
                 self.history.append(self.current)
         
         if not self.queue:
@@ -110,14 +106,11 @@ class MusicControlView(discord.ui.View):
 
     @discord.ui.button(label="下一首", style=discord.ButtonStyle.secondary, row=0)
     async def next(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not self.manager.queue and self.manager.mode == "none":
-            return await interaction.response.send_message("待播清單已空", ephemeral=True)
         self.manager.vc.stop()
         await interaction.response.edit_message(embed=self.manager.get_status_embed(), view=self)
 
     @discord.ui.button(label="切換循環", style=discord.ButtonStyle.success, row=0)
     async def toggle_loop(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # 依照 不循環 -> 單曲循環 -> 歌單循環 順序切換
         modes = ["none", "single", "all"]
         self.manager.mode = modes[(modes.index(self.manager.mode) + 1) % 3]
         await interaction.response.edit_message(embed=self.manager.get_status_embed(), view=self)
@@ -137,16 +130,42 @@ class MusicControlView(discord.ui.View):
         await interaction.response.edit_message(embed=self.manager.get_status_embed(), view=self)
 
 # =========================================================
-# ===== 背景任務與指令 =====
+# ===== 機器人事件 (含標註機器人顯示使用方式) =====
+# =========================================================
+@bot.event
+async def on_message(message):
+    if message.author.bot: return
+    if bot.user.mentioned_in(message) and message.mention_everyone is False:
+        help_text = (
+            "### 🎵 機器人指令使用說明\n"
+            "本機器人支援 Slash 指令 (輸入 `/` 即可看到選項)：\n"
+            "- `/播放`: 上傳音檔進行播放，並開啟控制面板 (含音量、循環切換)\n"
+            "- `/加入`: 讓機器人進入你所在的語音頻道\n"
+            "- `/離開`: 讓機器人離開頻道並重設狀態\n"
+            "- `/查看審核日誌`: 以中文顯示伺服器最近的操作紀錄\n"
+            "- `/設定統計頻道`: 自動建立伺服器人數統計\n"
+            "- `/系統狀態`: 查看目前伺服器的 CPU 與 RAM 資訊\n"
+            "- `/狀態`: 檢查機器人掛機時間與延遲"
+        )
+        await message.channel.send(help_text)
+    await bot.process_commands(message)
+
+@bot.event
+async def on_ready():
+    await tree.sync()
+    print(f"機器人已上線：{bot.user}")
+    update_member_stats.start()
+    check_connection.start()
+
+# =========================================================
+# ===== 背景任務與指令區 =====
 # =========================================================
 async def update_stats_logic(guild):
     if guild.id not in stats_channels: return
     ch_data = stats_channels[guild.id]
     total = guild.member_count
-    bots = sum(1 for m in guild.members if m.bot)
     online = sum(1 for m in guild.members if not m.bot and m.status != discord.Status.offline)
-    
-    mapping = {"total": f"全部人數: {total}", "members": f"成員人數: {total - bots}", "online": f"在線成員: {online}"}
+    mapping = {"total": f"全部人數: {total}", "online": f"在線成員: {online}"}
     for key, name in mapping.items():
         if key in ch_data:
             ch = bot.get_channel(ch_data[key])
@@ -233,12 +252,22 @@ async def setup_stats(interaction: discord.Interaction):
     await update_stats_logic(guild)
     await interaction.followup.send("統計頻道建立完成")
 
-@bot.event
-async def on_ready():
-    await tree.sync()
-    print(f"機器人已上線：{bot.user}")
-    update_member_stats.start()
-    check_connection.start()
+@tree.command(name="系統狀態", description="查看硬體資訊")
+async def system_status(interaction: discord.Interaction):
+    await interaction.response.defer(thinking=True)
+    cpu_usage = psutil.cpu_percent(interval=1)
+    ram = psutil.virtual_memory()
+    embed = discord.Embed(title="伺服器硬體狀態", color=0x3498db)
+    embed.add_field(name="CPU 使用率", value=f"{cpu_usage}%", inline=True)
+    embed.add_field(name="記憶體使用", value=f"{round(ram.used/(1024**3),2)}GB/{round(ram.total/(1024**3),2)}GB", inline=True)
+    await interaction.followup.send(embed=embed)
+
+@tree.command(name="狀態", description="檢查掛機時間與延遲")
+async def status(interaction: discord.Interaction):
+    await interaction.response.defer(thinking=True)
+    if interaction.guild_id not in stay_channels: return await interaction.followup.send("機器人未在掛機狀態", ephemeral=True)
+    uptime = int(time.time() - stay_since.get(interaction.guild_id, time.time()))
+    await interaction.followup.send(f"目前掛機時間: {uptime} 秒\n延遲: {round(bot.latency * 1000)} ms", ephemeral=True)
 
 token = os.environ.get("DISCORD_TOKEN")
 if token: bot.run(token)
