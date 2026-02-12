@@ -260,8 +260,7 @@ async def system_status(interaction: discord.Interaction):
     embed = discord.Embed(title="伺服器硬體狀態", color=0x3498db)
     embed.add_field(name="CPU 使用率", value=f"{cpu_usage}%", inline=True)
     embed.add_field(name="記憶體使用", value=f"{round(ram.used/(1024**3),2)}GB/{round(ram.total/(1024**3),2)}GB", inline=True)
-    await interaction.followup.send(embed=embed)
-
+    
 @tree.command(name="狀態", description="檢查掛機時間與延遲")
 async def status(interaction: discord.Interaction):
     await interaction.response.defer(thinking=True)
@@ -271,3 +270,4 @@ async def status(interaction: discord.Interaction):
 
 token = os.environ.get("DISCORD_TOKEN")
 if token: bot.run(token)
+
