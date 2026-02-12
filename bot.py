@@ -43,7 +43,7 @@ FFMPEG_OPTIONS = {
 class MusicManager:
     def __init__(self, guild_id):
         self.guild_id = guild_id
-        self.queue = []      
+        self.queue = []     
         self.history = []    
         self.current = None  
         self.volume = 0.5    
@@ -180,6 +180,8 @@ def get_usage_text():
         "* /停止標註：結束目前的轟炸。\n"
         "* /狀態：查看目前掛機頻道、已掛機時間與延遲。\n"
         "* /移除身分組 [成員] [身分組]：將某人的身分組拔掉。\n"
+        "* /給予身分組 [成員] [身分組]：給予某人特定的身分組。\n"
+        "* /查看審核日誌 [筆數]：查看伺服器最近的操作紀錄。\n"
         "* /使用方式：顯示此幫助選單。"
     )
 
@@ -277,6 +279,42 @@ async def remove_role(interaction: discord.Interaction, target: discord.Member, 
     except Exception as e:
         await interaction.followup.send(f"移除失敗: {e}", ephemeral=True)
 
+@tree.command(name="給予身分組", description="給予指定成員身分組")
+@app_commands.describe(target="目標成員", role="要給予的身分組")
+async def add_role(interaction: discord.Interaction, target: discord.Member, role: discord.Role):
+    await interaction.response.defer(thinking=True)
+    ALLOWED_ROLE_ID = 0 
+    has_perm = (
+        interaction.user.guild_permissions.manage_roles or 
+        any(r.id == ALLOWED_ROLE_ID for r in interaction.user.roles)
+    )
+    if not has_perm:
+        return await interaction.followup.send("錯誤：你沒有權限執行此操作。", ephemeral=True)
+    if role >= interaction.guild.me.top_role:
+        return await interaction.followup.send("錯誤：我的權限低於該身分組，無法給予。", ephemeral=True)
+    if role in target.roles:
+        return await interaction.followup.send("錯誤：該成員已經擁有這個身分組。", ephemeral=True)
+    try:
+        await target.add_roles(role)
+        await interaction.followup.send(f"成功給予 {target.display_name} {role.name} 身分組。")
+    except Exception as e:
+        await interaction.followup.send(f"給予失敗: {e}", ephemeral=True)
+
+@tree.command(name="查看審核日誌", description="查看最近的審核日誌紀錄")
+@app_commands.describe(limit="讀取筆數 (預設5筆)")
+async def view_audit_logs(interaction: discord.Interaction, limit: int = 5):
+    await interaction.response.defer(thinking=True)
+    if not interaction.user.guild_permissions.view_audit_log:
+        return await interaction.followup.send("錯誤：你沒有查看審核日誌的權限。", ephemeral=True)
+    
+    log_text = "### 最近審核日誌\n"
+    try:
+        async for entry in interaction.guild.audit_logs(limit=limit):
+            log_text += f"* 執行者: {entry.user} | 動作: {entry.action} | 目標: {entry.target}\n"
+        await interaction.followup.send(log_text)
+    except Exception as e:
+        await interaction.followup.send(f"讀取失敗: {e}", ephemeral=True)
+
 @tree.command(name="系統狀態", description="查看機器人伺服器硬體負載與網路資訊")
 async def system_status(interaction: discord.Interaction):
     await interaction.response.defer(thinking=True)
@@ -360,7 +398,7 @@ async def stop_audio(interaction: discord.Interaction):
         await interaction.response.send_message("停止播放")
     else: await interaction.response.send_message("沒有正在播放的音檔", ephemeral=True)
 
-@tree.command(name="開始標註", description="瘋狂標註某人")
+@tree.command(name="開始標註", description="瘋狂轟炸某人")
 async def start_tag(interaction: discord.Interaction, target: discord.Member, 內容: str, 次數: int | None = None):
     await interaction.response.defer(thinking=True)
     tag_targets[interaction.guild.id] = {
@@ -388,4 +426,3 @@ async def status(interaction: discord.Interaction):
 
 token = os.environ.get("DISCORD_TOKEN")
 if token: bot.run(token)
-
