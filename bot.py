@@ -252,20 +252,21 @@ async def unban_member(interaction: discord.Interaction, user_id: str):
 
 
 
-@tree.command(name="禁言", description="將成員禁言指定秒數")
+@tree.command(name="禁言", description="將成員禁言指定時間")
 @app_commands.checks.has_permissions(moderate_members=True)
-@app_commands.describe(成員="要禁言的成員", 秒數="禁言時間(秒)", 原因="禁言原因")
-async def timeout_member(interaction: discord.Interaction, 成員: discord.Member, 秒數: int, 原因: str = "無"):
+@app_commands.describe(成員="要禁言的成員", 時間="禁言時間 (例如: 1d2h30m10s)", 原因="禁言原因")
+async def timeout_member(interaction: discord.Interaction, 成員: discord.Member, 時間: str, 原因: str = "無"):
     if 成員.top_role >= interaction.user.top_role:
         return await interaction.response.send_message("你無法禁言此成員（權限不足）", ephemeral=True)
 
-    if 秒數 <= 0:
-        return await interaction.response.send_message("秒數必須大於 0", ephemeral=True)
+    秒數 = parse_duration(時間)
+    if 秒數 is None or 秒數 <= 0:
+        return await interaction.response.send_message("時間格式錯誤，請使用 1d2h30m10s 的格式", ephemeral=True)
 
     try:
         duration = datetime.timedelta(seconds=秒數)
         await 成員.timeout(duration, reason=原因)
-        await interaction.response.send_message(f"已將 {成員.mention} 禁言 {秒數} 秒\n原因: {原因}")
+        await interaction.response.send_message(f"已將 {成員.mention} 禁言 {時間}\n原因: {原因}")
     except Exception as e:
         await interaction.response.send_message(f"禁言失敗: {e}", ephemeral=True)
 
@@ -460,6 +461,7 @@ async def update_member_stats():
 
 token = os.environ.get("DISCORD_TOKEN")
 if token: bot.run(token)
+
 
 
 
