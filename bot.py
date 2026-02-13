@@ -25,6 +25,22 @@ intents.presences = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 tree = bot.tree
 
+# ===== 成員加入歡迎卡片 =====
+@bot.event
+async def on_member_join(member):
+    channel = member.guild.system_channel
+    if not channel:
+        return
+
+    embed = discord.Embed(
+        description=f"你好 歡迎加入 {member.guild.name}\n\n{member.mention}\n\n你是本伺服器的第 {member.guild.member_count} 位成員",
+        color=0x2b2d31
+    )
+
+    embed.set_thumbnail(url=member.display_avatar.url)
+
+    await channel.send(embed=embed)
+
 # ===== 資料儲存 =====
 stay_channels = {}
 stay_since = {}
@@ -365,3 +381,4 @@ async def update_member_stats():
 
 token = os.environ.get("DISCORD_TOKEN")
 if token: bot.run(token)
+
