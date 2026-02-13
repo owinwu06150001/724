@@ -33,7 +33,6 @@ stats_channels = {}
 queues = {} 
 
 # ===== 擴充後的不雅語言詞庫 =====
-# 包含常見髒話、人身攻擊、歧視性字眼與諧音
 COMMON_PROFANITY = [
     "幹", "靠", "屁", "垃圾", "智障", "腦癱", "死全家", "孤兒", 
     "廢物", "去死", "操你媽", "你媽死了", "尼哥", "畜生", "雜種", 
@@ -155,11 +154,9 @@ class MusicControlView(discord.ui.View):
 async def on_message(message):
     if message.author.bot: return
 
-    # 標註顯示手冊
     if bot.user.mentioned_in(message) and message.mention_everyone is False:
         await message.channel.send(get_help_text(bot.user.mention))
 
-    # 不雅語言偵測
     if filter_config["enabled"]:
         if any(word in message.content for word in filter_config["keywords"]):
             try:
@@ -224,7 +221,7 @@ async def start_bomb(interaction: discord.Interaction, 成員: discord.Member, �
 @tree.command(name="停止標註", description="停止轟炸")
 async def stop_bomb(interaction: discord.Interaction, 成員: discord.Member):
     tag_targets[成員.id] = False
-    await interaction.response.send_message(f"已停止對 {成員.mention} 的動作")
+    await interaction.response.send_message(f"已停止對 {成員.mention} 的轟炸")
 
 @tree.command(name="加入", description="進入語音頻道掛機")
 async def join_vc(interaction: discord.Interaction, 頻道: discord.VoiceChannel = None):
@@ -233,7 +230,7 @@ async def join_vc(interaction: discord.Interaction, 頻道: discord.VoiceChannel
     await 頻道.connect(self_deaf=True)
     stay_channels[interaction.guild.id] = 頻道.id
     stay_since[interaction.guild.id] = time.time()
-    await interaction.response.send_message(f"已連接至：{頻道.name}")
+    await interaction.response.send_message(f"我進來 {頻道.name} 竊聽了")
 
 @tree.command(name="播放", description="播放上傳的音檔")
 async def play_audio(interaction: discord.Interaction, 檔案: discord.Attachment):
@@ -258,10 +255,29 @@ async def play_audio(interaction: discord.Interaction, 檔案: discord.Attachmen
 @app_commands.checks.has_permissions(manage_channels=True)
 async def stats_setup(interaction: discord.Interaction):
     guild = interaction.guild
-    overwrites = {guild.default_role: discord.PermissionOverwrite(connect=False), guild.me: discord.PermissionOverwrite(connect=True, manage_channels=True)}
-    category = await guild.create_category("伺服器數據", position=0)
-    c_total = await guild.create_voice_channel(f"全部人數: {guild.member_count}", category=category, overwrites=overwrites)
-    stats_channels[guild.id] = {"total": c_total.id}
+    overwrites = {
+        guild.default_role: discord.PermissionOverwrite(connect=False, view_channel=True),
+        guild.me: discord.PermissionOverwrite(connect=True, view_channel=True, manage_channels=True)
+    }
+    
+    category = await guild.create_category("伺服器數據", position=0, overwrites=overwrites)
+    
+    total = guild.member_count
+    bots = len([m for m in guild.members if m.bot])
+    humans = total - bots
+    online = len([m for m in guild.members if m.status != discord.Status.offline])
+    
+    c_total = await guild.create_voice_channel(f"全部人數: {total}", category=category, overwrites=overwrites)
+    c_humans = await guild.create_voice_channel(f"成員人數: {humans}", category=category, overwrites=overwrites)
+    c_online = await guild.create_voice_channel(f"在線成員: {online}", category=category, overwrites=overwrites)
+    c_bots = await guild.create_voice_channel(f"機器人: {bots}", category=category, overwrites=overwrites)
+    
+    stats_channels[guild.id] = {
+        "total": c_total.id,
+        "humans": c_humans.id,
+        "online": c_online.id,
+        "bots": c_bots.id
+    }
     await interaction.response.send_message("統計頻道建立完成")
 
 @tree.command(name="給予身分組", description="賦予成員身分組")
@@ -291,8 +307,8 @@ async def leave_vc(interaction: discord.Interaction):
     if interaction.guild.voice_client:
         await interaction.guild.voice_client.disconnect()
         stay_channels.pop(interaction.guild.id, None)
-        await interaction.response.send_message("已離開語音頻道")
-    else: await interaction.response.send_message("目前不在語音中")
+        await interaction.response.send_message("我走了")
+    else: await interaction.response.send_message("沒在任何語音頻道裡我是要離開去哪")
 
 @tree.command(name="狀態", description="查看掛機時間與延遲")
 async def status_info(interaction: discord.Interaction):
@@ -328,10 +344,24 @@ async def check_connection():
 async def update_member_stats():
     for guild in bot.guilds:
         if guild.id in stats_channels:
-            ch = bot.get_channel(stats_channels[guild.id]["total"])
-            if ch: 
-                try: await ch.edit(name=f"全部人數: {guild.member_count}")
-                except: pass
+            stats = stats_channels[guild.id]
+            total = guild.member_count
+            bots = len([m for m in guild.members if m.bot])
+            humans = total - bots
+            online = len([m for m in guild.members if m.status != discord.Status.offline])
+            
+            data_map = {
+                "total": f"全部人數: {total}",
+                "humans": f"成員人數: {humans}",
+                "online": f"在線成員: {online}",
+                "bots": f"機器人: {bots}"
+            }
+            
+            for key, name in data_map.items():
+                ch = bot.get_channel(stats.get(key))
+                if ch:
+                    try: await ch.edit(name=name)
+                    except: pass
 
 token = os.environ.get("DISCORD_TOKEN")
 if token: bot.run(token)
