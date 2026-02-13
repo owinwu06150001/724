@@ -209,6 +209,76 @@ async def on_ready():
 # =========================================================
 # ===== 中文指令區 =====
 # =========================================================
+# ===== 成員管理功能 =====
+
+@tree.command(name="踢出", description="踢出指定成員")
+@app_commands.checks.has_permissions(kick_members=True)
+@app_commands.describe(成員="要踢出的成員", 原因="踢出原因")
+async def kick_member(interaction: discord.Interaction, 成員: discord.Member, 原因: str = "無"):
+    if 成員.top_role >= interaction.user.top_role:
+        return await interaction.response.send_message("你無法踢出此成員（權限不足）", ephemeral=True)
+
+    try:
+        await 成員.kick(reason=原因)
+        await interaction.response.send_message(f"已踢出 {成員.mention}\n原因: {原因}")
+    except Exception as e:
+        await interaction.response.send_message(f"踢出失敗: {e}", ephemeral=True)
+
+
+@tree.command(name="封鎖", description="封鎖指定成員")
+@app_commands.checks.has_permissions(ban_members=True)
+@app_commands.describe(成員="要封鎖的成員", 原因="封鎖原因")
+async def ban_member(interaction: discord.Interaction, 成員: discord.Member, 原因: str = "無"):
+    if 成員.top_role >= interaction.user.top_role:
+        return await interaction.response.send_message("你無法封鎖此成員（權限不足）", ephemeral=True)
+
+    try:
+        await 成員.ban(reason=原因)
+        await interaction.response.send_message(f"已封鎖 {成員.mention}\n原因: {原因}")
+    except Exception as e:
+        await interaction.response.send_message(f"封鎖失敗: {e}", ephemeral=True)
+
+
+@tree.command(name="解除封鎖", description="解除封鎖成員")
+@app_commands.checks.has_permissions(ban_members=True)
+@app_commands.describe(用戶ID="要解除封鎖的用戶ID")
+async def unban_member(interaction: discord.Interaction, 用戶ID: str):
+    try:
+        user = await bot.fetch_user(int(用戶ID))
+        await interaction.guild.unban(user)
+        await interaction.response.send_message(f"已解除封鎖 {user}")
+    except Exception as e:
+        await interaction.response.send_message(f"解除封鎖失敗: {e}", ephemeral=True)
+
+
+@tree.command(name="禁言", description="將成員禁言指定秒數")
+@app_commands.checks.has_permissions(moderate_members=True)
+@app_commands.describe(成員="要禁言的成員", 秒數="禁言時間(秒)", 原因="禁言原因")
+async def timeout_member(interaction: discord.Interaction, 成員: discord.Member, 秒數: int, 原因: str = "無"):
+    if 成員.top_role >= interaction.user.top_role:
+        return await interaction.response.send_message("你無法禁言此成員（權限不足）", ephemeral=True)
+
+    if 秒數 <= 0:
+        return await interaction.response.send_message("秒數必須大於 0", ephemeral=True)
+
+    try:
+        duration = datetime.timedelta(seconds=秒數)
+        await 成員.timeout(duration, reason=原因)
+        await interaction.response.send_message(f"已將 {成員.mention} 禁言 {秒數} 秒\n原因: {原因}")
+    except Exception as e:
+        await interaction.response.send_message(f"禁言失敗: {e}", ephemeral=True)
+
+
+@tree.command(name="解除禁言", description="解除成員禁言")
+@app_commands.checks.has_permissions(moderate_members=True)
+@app_commands.describe(成員="要解除禁言的成員")
+async def remove_timeout(interaction: discord.Interaction, 成員: discord.Member):
+    try:
+        await 成員.timeout(None)
+        await interaction.response.send_message(f"已解除 {成員.mention} 的禁言")
+    except Exception as e:
+        await interaction.response.send_message(f"解除禁言失敗: {e}", ephemeral=True)
+
 
 @tree.command(name="使用方式", description="顯示功能清單")
 async def show_help(interaction: discord.Interaction):
@@ -385,8 +455,10 @@ async def update_member_stats():
                 if ch:
                     try: await ch.edit(name=name)
                     except: pass
+                        
 
 token = os.environ.get("DISCORD_TOKEN")
 if token: bot.run(token)
+
 
 
