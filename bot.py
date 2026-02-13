@@ -197,7 +197,14 @@ async def on_ready():
     await tree.sync()
     update_member_stats.start()
     check_connection.start()
+
+    await bot.change_presence(
+        status=discord.Status.online,
+        activity=discord.Game(name="24/7 掛機中")
+    )
+
     print(f"機器人已啟動：{bot.user}")
+
 
 # =========================================================
 # ===== 中文指令區 =====
@@ -381,4 +388,5 @@ async def update_member_stats():
 
 token = os.environ.get("DISCORD_TOKEN")
 if token: bot.run(token)
+
 
