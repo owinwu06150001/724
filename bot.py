@@ -8,6 +8,27 @@ import datetime
 import psutil
 import static_ffmpeg
 from server import keep_alive
+import re
+import datetime
+
+def parse_duration(time_str: str) -> int:
+    """
+    將類似 '1d2h30m10s' 的字串轉成秒數
+    支援 d(天), h(小時), m(分鐘), s(秒)
+    """
+    pattern = r"(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?"
+    match = re.fullmatch(pattern, time_str.lower())
+    if not match:
+        return None
+    days, hours, minutes, seconds = match.groups()
+    total_seconds = (
+        int(days or 0) * 86400 +
+        int(hours or 0) * 3600 +
+        int(minutes or 0) * 60 +
+        int(seconds or 0)
+    )
+    return total_seconds
+
 
 # 初始化 FFMPEG
 static_ffmpeg.add_paths()
@@ -461,6 +482,7 @@ async def update_member_stats():
 
 token = os.environ.get("DISCORD_TOKEN")
 if token: bot.run(token)
+
 
 
 
