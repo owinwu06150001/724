@@ -241,14 +241,15 @@ async def ban_member(interaction: discord.Interaction, 成員: discord.Member, �
 
 @tree.command(name="解除封鎖", description="解除封鎖成員")
 @app_commands.checks.has_permissions(ban_members=True)
-@app_commands.describe(用戶ID="要解除封鎖的用戶ID")
-async def unban_member(interaction: discord.Interaction, 用戶ID: str):
+@app_commands.describe(user_id="要解除封鎖的用戶ID")
+async def unban_member(interaction: discord.Interaction, user_id: str):
     try:
-        user = await bot.fetch_user(int(用戶ID))
+        user = await bot.fetch_user(int(user_id))
         await interaction.guild.unban(user)
         await interaction.response.send_message(f"已解除封鎖 {user}")
     except Exception as e:
         await interaction.response.send_message(f"解除封鎖失敗: {e}", ephemeral=True)
+
 
 
 @tree.command(name="禁言", description="將成員禁言指定秒數")
@@ -459,6 +460,7 @@ async def update_member_stats():
 
 token = os.environ.get("DISCORD_TOKEN")
 if token: bot.run(token)
+
 
 
 
