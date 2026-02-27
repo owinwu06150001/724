@@ -9,13 +9,31 @@ import psutil
 import static_ffmpeg
 from server import keep_alive
 import re
-import datetime
+import json
+
+# ===== JSON 存檔邏輯 (新增) =====
+DATA_FILE = "config.json"
+
+def load_config():
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            try:
+                data = json.load(f)
+                return data
+            except:
+                pass
+    return {"stay_channels": {}, "stats_channels": {}, "filter_config": None}
+
+def save_config():
+    data = {
+        "stay_channels": stay_channels,
+        "stats_channels": stats_channels,
+        "filter_config": filter_config
+    }
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
 
 def parse_duration(time_str: str) -> int:
-    """
-    將類似 '1d2h30m10s' 的字串轉成秒數
-    支援 d(天), h(小時), m(分鐘), s(秒)
-    """
     pattern = r"(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?"
     match = re.fullmatch(pattern, time_str.lower())
     if not match:
@@ -28,7 +46,6 @@ def parse_duration(time_str: str) -> int:
         int(seconds or 0)
     )
     return total_seconds
-
 
 # 初始化 FFMPEG
 static_ffmpeg.add_paths()
@@ -52,24 +69,14 @@ async def on_member_join(member):
     channel = member.guild.system_channel
     if not channel:
         return
-
     embed = discord.Embed(
         description=f"你好 歡迎加入 {member.guild.name}\n\n{member.mention}\n\n你是本伺服器的第 {member.guild.member_count} 位成員",
         color=0x2b2d31
     )
-
     embed.set_thumbnail(url=member.display_avatar.url)
-
     await channel.send(embed=embed)
 
-# ===== 資料儲存 =====
-stay_channels = {}
-stay_since = {}
-tag_targets = {}
-stats_channels = {}
-queues = {} 
-
-# ===== 擴充後的不雅語言詞庫 =====
+# ===== 資料儲存 (修改為讀取存檔) =====
 COMMON_PROFANITY = [
     "幹", "靠", "屁", "垃圾", "智障", "腦癱", "死全家", "孤兒", 
     "廢物", "去死", "操你媽", "你媽死了", "尼哥", "畜生", "雜種", 
@@ -78,12 +85,18 @@ COMMON_PROFANITY = [
     "支那", "下流", "無恥", "欠幹", "狗娘養的", "尼瑪"
 ]
 
-# 不雅語言偵測設定
-filter_config = {
+_loaded = load_config()
+stay_channels = _loaded.get("stay_channels", {})
+stats_channels = _loaded.get("stats_channels", {})
+filter_config = _loaded.get("filter_config") or {
     "enabled": False,
     "log_channel_id": None,
     "keywords": COMMON_PROFANITY
 }
+
+stay_since = {}
+tag_targets = {}
+queues = {} 
 
 # ===== 播放音檔設定 =====
 FFMPEG_OPTIONS = {
@@ -100,7 +113,7 @@ AUDIT_LOG_ACTIONS_CN = {
     "message_delete": "刪除訊息", "message_bulk_delete": "批量刪除訊息",
 }
 
-# ===== 公用手冊內容 (無表情符號) =====
+# ===== 公用手冊內容 =====
 def get_help_text(bot_mention):
     return (
         f"## {bot_mention} 使用手冊\n"
@@ -122,9 +135,7 @@ def get_help_text(bot_mention):
         "* /使用方式：顯示本手冊。"
     )
 
-# =========================================================
-# ===== 核心邏輯 (轟炸與音樂管理類別) =====
-# =========================================================
+# ===== 核心邏輯 =====
 async def tag_logic(channel, target, content, times):
     for i in range(times):
         if tag_targets.get(target.id) is False:
@@ -138,10 +149,10 @@ async def tag_logic(channel, target, content, times):
 class MusicManager:
     def __init__(self, guild_id):
         self.guild_id = guild_id
-        self.queue = []     
-        self.history = []    
-        self.current = None  
-        self.volume = 0.5    
+        self.queue = [] 
+        self.history = [] 
+        self.current = None 
+        self.volume = 0.5 
         self.mode = "none"
         self.vc = None
 
@@ -184,16 +195,12 @@ class MusicControlView(discord.ui.View):
         elif self.manager.vc.is_paused(): self.manager.vc.resume()
         await interaction.response.edit_message(embed=self.manager.get_status_embed(), view=self)
 
-# =========================================================
-# ===== 事件監聽 (過濾器與標註手冊) =====
-# =========================================================
+# ===== 事件監聽 =====
 @bot.event
 async def on_message(message):
     if message.author.bot: return
-
     if bot.user.mentioned_in(message) and message.mention_everyone is False:
         await message.channel.send(get_help_text(bot.user.mention))
-
     if filter_config["enabled"]:
         if any(word in message.content for word in filter_config["keywords"]):
             try:
@@ -201,7 +208,6 @@ async def on_message(message):
                 user = message.author
                 await message.delete()
                 await user.timeout(datetime.timedelta(seconds=60), reason="使用不雅詞彙")
-                
                 if filter_config["log_channel_id"]:
                     log_ch = bot.get_channel(filter_config["log_channel_id"])
                     if log_ch:
@@ -210,7 +216,6 @@ async def on_message(message):
                         log_embed.add_field(name="違規內容", value=msg_text)
                         await log_ch.send(embed=log_embed)
             except: pass
-
     await bot.process_commands(message)
 
 @bot.event
@@ -219,50 +224,46 @@ async def on_ready():
     update_member_stats.start()
     check_connection.start()
 
-    await bot.change_presence(
-        status=discord.Status.online,
-        activity=discord.Game(name="24/7 掛機中")
-    )
+    # 自動重連 (從存檔讀取)
+    for gid_str, cid in list(stay_channels.items()):
+        guild = bot.get_guild(int(gid_str))
+        if guild and not guild.voice_client:
+            ch = bot.get_channel(cid)
+            if ch:
+                try: 
+                    await ch.connect(self_deaf=True)
+                    stay_since[int(gid_str)] = time.time()
+                except: pass
 
+    await bot.change_presence(status=discord.Status.online, activity=discord.Game(name="24/7 掛機中"))
     print(f"機器人已啟動：{bot.user}")
 
-
-# =========================================================
 # ===== 中文指令區 =====
-# =========================================================
-# ===== 成員管理功能 =====
 
 @tree.command(name="踢出", description="踢出指定成員")
 @app_commands.checks.has_permissions(kick_members=True)
-@app_commands.describe(成員="要踢出的成員", 原因="踢出原因")
 async def kick_member(interaction: discord.Interaction, 成員: discord.Member, 原因: str = "無"):
     if 成員.top_role >= interaction.user.top_role:
         return await interaction.response.send_message("你無法踢出此成員（權限不足）", ephemeral=True)
-
     try:
         await 成員.kick(reason=原因)
         await interaction.response.send_message(f"已踢出 {成員.mention}\n原因: {原因}")
     except Exception as e:
         await interaction.response.send_message(f"踢出失敗: {e}", ephemeral=True)
 
-
 @tree.command(name="封鎖", description="封鎖指定成員")
 @app_commands.checks.has_permissions(ban_members=True)
-@app_commands.describe(成員="要封鎖的成員", 原因="封鎖原因")
 async def ban_member(interaction: discord.Interaction, 成員: discord.Member, 原因: str = "無"):
     if 成員.top_role >= interaction.user.top_role:
         return await interaction.response.send_message("你無法封鎖此成員（權限不足）", ephemeral=True)
-
     try:
         await 成員.ban(reason=原因)
         await interaction.response.send_message(f"已封鎖 {成員.mention}\n原因: {原因}")
     except Exception as e:
         await interaction.response.send_message(f"封鎖失敗: {e}", ephemeral=True)
 
-
 @tree.command(name="解除封鎖", description="解除封鎖成員")
 @app_commands.checks.has_permissions(ban_members=True)
-@app_commands.describe(user_id="要解除封鎖的用戶ID")
 async def unban_member(interaction: discord.Interaction, user_id: str):
     try:
         user = await bot.fetch_user(int(user_id))
@@ -271,86 +272,39 @@ async def unban_member(interaction: discord.Interaction, user_id: str):
     except Exception as e:
         await interaction.response.send_message(f"解除封鎖失敗: {e}", ephemeral=True)
 
-
-
 @tree.command(name="禁言", description="將成員禁言指定時間")
 @app_commands.checks.has_permissions(moderate_members=True)
-@app_commands.describe(
-    成員="要禁言的成員",
-    天="天數",
-    小時="小時",
-    分鐘="分鐘",
-    秒數="秒數",
-    原因="禁言原因"
-)
-async def timeout_member(
-    interaction: discord.Interaction,
-    成員: discord.Member,
-    天: int = 0,
-    小時: int = 0,
-    分鐘: int = 0,
-    秒數: int = 0,
-    原因: str = "無"
-):
-
-    # 權限檢查
+async def timeout_member(interaction: discord.Interaction, 成員: discord.Member, 天: int = 0, 小時: int = 0, 分鐘: int = 0, 秒數: int = 0, 原因: str = "無"):
     if 成員.top_role >= interaction.user.top_role:
         return await interaction.response.send_message("你無法禁言此成員（權限不足）", ephemeral=True)
-
-    # 不可全部為 0
-    if 天 == 0 and 小時 == 0 and 分鐘 == 0 and 秒數 == 0:
-        return await interaction.response.send_message("請至少輸入一個時間", ephemeral=True)
-
-    # 不可負數
-    if any(x < 0 for x in [天, 小時, 分鐘, 秒數]):
-        return await interaction.response.send_message("時間不可為負數", ephemeral=True)
-
-    # 計算總秒數
-    總秒數 = (
-        天 * 86400 +
-        小時 * 3600 +
-        分鐘 * 60 +
-        秒數
-    )
-
-    # Discord timeout 最長 28 天
-    最大秒數 = 28 * 24 * 60 * 60
-    if 總秒數 > 最大秒數:
-        return await interaction.response.send_message("禁言時間不可超過 28 天", ephemeral=True)
-
+    總秒數 = (天 * 86400 + 小時 * 3600 + 分鐘 * 60 + 秒數)
+    if 總秒數 <= 0: return await interaction.response.send_message("請輸入有效時間", ephemeral=True)
+    if 總秒數 > 2419200: return await interaction.response.send_message("禁言時間不可超過 28 天", ephemeral=True)
     try:
         duration = datetime.timedelta(seconds=總秒數)
         await 成員.timeout(duration, reason=原因)
-
-        await interaction.response.send_message(
-            f"已將 {成員.mention} 禁言\n"
-            f"時間：{天}天 {小時}小時 {分鐘}分鐘 {秒數}秒\n"
-            f"原因：{原因}"
-        )
-
+        await interaction.response.send_message(f"已將 {成員.mention} 禁言 {天}天 {小時}時 {分鐘}分 {秒數}秒\n原因: {原因}")
     except Exception as e:
         await interaction.response.send_message(f"禁言失敗: {e}", ephemeral=True)
 
-
-@tree.command(name="使用方式", description="顯示功能清單")
+@tree.command(name="使用方式", description="顯示功能手冊")
 async def show_help(interaction: discord.Interaction):
     await interaction.response.send_message(get_help_text(bot.user.mention))
 
 @tree.command(name="設定過濾器", description="開啟/關閉禁言系統")
-@app_commands.describe(開啟="是否啟動", 記錄頻道="違規訊息日誌頻道")
 @app_commands.checks.has_permissions(manage_guild=True)
 async def filter_set(interaction: discord.Interaction, 開啟: bool, 記錄頻道: discord.TextChannel):
     filter_config["enabled"] = 開啟
     filter_config["log_channel_id"] = 記錄頻道.id
-    status = "開啟" if 開啟 else "關閉"
-    await interaction.response.send_message(f"過濾系統：{status}，日誌頻道：{記錄頻道.mention}")
+    save_config()
+    await interaction.response.send_message(f"過濾系統：{'開啟' if 開啟 else '關閉'}，日誌頻道：{記錄頻道.mention}")
 
 @tree.command(name="新增過濾詞彙", description="加入新的禁止字詞")
-@app_commands.describe(詞彙="要禁用的字詞")
 @app_commands.checks.has_permissions(manage_guild=True)
 async def add_profanity(interaction: discord.Interaction, 詞彙: str):
     if 詞彙 not in filter_config["keywords"]:
         filter_config["keywords"].append(詞彙)
+        save_config()
         await interaction.response.send_message(f"已將「{詞彙}」加入過濾名單")
     else:
         await interaction.response.send_message("該詞彙已在名單中")
@@ -373,25 +327,23 @@ async def join_vc(interaction: discord.Interaction, 頻道: discord.VoiceChannel
     頻道 = 頻道 or (interaction.user.voice.channel if interaction.user.voice else None)
     if not 頻道: return await interaction.response.send_message("請先進入頻道或指定頻道", ephemeral=True)
     await 頻道.connect(self_deaf=True)
-    stay_channels[interaction.guild.id] = 頻道.id
+    stay_channels[str(interaction.guild.id)] = 頻道.id
     stay_since[interaction.guild.id] = time.time()
+    save_config()
     await interaction.response.send_message(f"我進來 {頻道.name} 竊聽了")
 
 @tree.command(name="播放", description="播放上傳的音檔")
 async def play_audio(interaction: discord.Interaction, 檔案: discord.Attachment):
     if not 檔案.filename.endswith(('.mp3', '.ogg', '.m4a')):
         return await interaction.response.send_message("格式不支援", ephemeral=True)
-    
     await interaction.response.defer(thinking=True)
     gid = interaction.guild_id
     if gid not in queues: queues[gid] = MusicManager(gid)
     mgr = queues[gid]
-    
     if not interaction.guild.voice_client:
         if not interaction.user.voice: return await interaction.followup.send("請先進入語音")
         mgr.vc = await interaction.user.voice.channel.connect(self_deaf=True)
     else: mgr.vc = interaction.guild.voice_client
-
     mgr.queue.append((檔案.url, 檔案.filename))
     if not mgr.vc.is_playing() and not mgr.vc.is_paused(): mgr.play_next()
     await interaction.followup.send(embed=mgr.get_status_embed(), view=MusicControlView(mgr))
@@ -404,25 +356,19 @@ async def stats_setup(interaction: discord.Interaction):
         guild.default_role: discord.PermissionOverwrite(connect=False, view_channel=True),
         guild.me: discord.PermissionOverwrite(connect=True, view_channel=True, manage_channels=True)
     }
-    
     category = await guild.create_category("伺服器數據", position=0, overwrites=overwrites)
-    
     total = guild.member_count
     bots = len([m for m in guild.members if m.bot])
     humans = total - bots
     online = len([m for m in guild.members if m.status != discord.Status.offline])
-    
     c_total = await guild.create_voice_channel(f"全部人數: {total}", category=category, overwrites=overwrites)
     c_humans = await guild.create_voice_channel(f"成員人數: {humans}", category=category, overwrites=overwrites)
     c_online = await guild.create_voice_channel(f"在線成員: {online}", category=category, overwrites=overwrites)
     c_bots = await guild.create_voice_channel(f"機器人: {bots}", category=category, overwrites=overwrites)
-    
-    stats_channels[guild.id] = {
-        "total": c_total.id,
-        "humans": c_humans.id,
-        "online": c_online.id,
-        "bots": c_bots.id
+    stats_channels[str(guild.id)] = {
+        "total": c_total.id, "humans": c_humans.id, "online": c_online.id, "bots": c_bots.id
     }
+    save_config()
     await interaction.response.send_message("統計頻道建立完成")
 
 @tree.command(name="給予身分組", description="賦予成員身分組")
@@ -451,18 +397,18 @@ async def sys_info(interaction: discord.Interaction):
 async def leave_vc(interaction: discord.Interaction):
     if interaction.guild.voice_client:
         await interaction.guild.voice_client.disconnect()
-        stay_channels.pop(interaction.guild.id, None)
+        stay_channels.pop(str(interaction.guild.id), None)
+        save_config()
         await interaction.response.send_message("我走了")
     else: await interaction.response.send_message("沒在任何語音頻道裡我是要離開去哪")
 
 @tree.command(name="狀態", description="查看掛機時間與延遲")
 async def status_info(interaction: discord.Interaction):
-    if interaction.guild_id not in stay_channels: return await interaction.response.send_message("未在掛機狀態", ephemeral=True)
+    if str(interaction.guild_id) not in stay_channels: return await interaction.response.send_message("未在掛機狀態", ephemeral=True)
     uptime = int(time.time() - stay_since.get(interaction.guild_id, time.time()))
     await interaction.response.send_message(f"掛機時間: {uptime} 秒 | 延遲: {round(bot.latency * 1000)} ms")
 
 @tree.command(name="查看審核日誌", description="查看操作紀錄")
-@app_commands.describe(筆數="顯示數量(1-20)")
 @app_commands.checks.has_permissions(view_audit_log=True)
 async def show_logs(interaction: discord.Interaction, 筆數: int = 5):
     await interaction.response.defer(thinking=True)
@@ -477,8 +423,8 @@ async def show_logs(interaction: discord.Interaction, 筆數: int = 5):
 # ===== 背景任務 =====
 @tasks.loop(seconds=30)
 async def check_connection():
-    for gid, cid in list(stay_channels.items()):
-        guild = bot.get_guild(gid)
+    for gid_str, cid in list(stay_channels.items()):
+        guild = bot.get_guild(int(gid_str))
         if not guild or (guild.voice_client and guild.voice_client.is_connected()): continue
         ch = bot.get_channel(cid)
         if ch: 
@@ -487,35 +433,19 @@ async def check_connection():
 
 @tasks.loop(minutes=10)
 async def update_member_stats():
-    for guild in bot.guilds:
-        if guild.id in stats_channels:
-            stats = stats_channels[guild.id]
+    for gid_str, stats in list(stats_channels.items()):
+        guild = bot.get_guild(int(gid_str))
+        if guild:
             total = guild.member_count
             bots = len([m for m in guild.members if m.bot])
             humans = total - bots
             online = len([m for m in guild.members if m.status != discord.Status.offline])
-            
-            data_map = {
-                "total": f"全部人數: {total}",
-                "humans": f"成員人數: {humans}",
-                "online": f"在線成員: {online}",
-                "bots": f"機器人: {bots}"
-            }
-            
+            data_map = {"total": f"全部人數: {total}", "humans": f"成員人數: {humans}", "online": f"在線成員: {online}", "bots": f"機器人: {bots}"}
             for key, name in data_map.items():
                 ch = bot.get_channel(stats.get(key))
                 if ch:
                     try: await ch.edit(name=name)
                     except: pass
-                        
 
 token = os.environ.get("DISCORD_TOKEN")
 if token: bot.run(token)
-
-
-
-
-
-
-
-
