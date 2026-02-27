@@ -275,32 +275,61 @@ async def unban_member(interaction: discord.Interaction, user_id: str):
 
 @tree.command(name="禁言", description="將成員禁言指定時間")
 @app_commands.checks.has_permissions(moderate_members=True)
-@app_commands.describe(成員="要禁言的成員", 時間="禁言時間 (例如: 1d2h30m10s)", 原因="禁言原因")
-async def timeout_member(interaction: discord.Interaction, 成員: discord.Member, 時間: str, 原因: str = "無"):
+@app_commands.describe(
+    成員="要禁言的成員",
+    天="天數",
+    小時="小時",
+    分鐘="分鐘",
+    秒數="秒數",
+    原因="禁言原因"
+)
+async def timeout_member(
+    interaction: discord.Interaction,
+    成員: discord.Member,
+    天: int = 0,
+    小時: int = 0,
+    分鐘: int = 0,
+    秒數: int = 0,
+    原因: str = "無"
+):
+
+    # 權限檢查
     if 成員.top_role >= interaction.user.top_role:
         return await interaction.response.send_message("你無法禁言此成員（權限不足）", ephemeral=True)
 
-    秒數 = parse_duration(時間)
-    if 秒數 is None or 秒數 <= 0:
-        return await interaction.response.send_message("時間格式錯誤，請使用 1d2h30m10s 的格式", ephemeral=True)
+    # 不可全部為 0
+    if 天 == 0 and 小時 == 0 and 分鐘 == 0 and 秒數 == 0:
+        return await interaction.response.send_message("請至少輸入一個時間", ephemeral=True)
+
+    # 不可負數
+    if any(x < 0 for x in [天, 小時, 分鐘, 秒數]):
+        return await interaction.response.send_message("時間不可為負數", ephemeral=True)
+
+    # 計算總秒數
+    總秒數 = (
+        天 * 86400 +
+        小時 * 3600 +
+        分鐘 * 60 +
+        秒數
+    )
+
+    # Discord timeout 最長 28 天
+    最大秒數 = 28 * 24 * 60 * 60
+    if 總秒數 > 最大秒數:
+        return await interaction.response.send_message("禁言時間不可超過 28 天", ephemeral=True)
 
     try:
-        duration = datetime.timedelta(seconds=秒數)
+        duration = datetime.timedelta(seconds=總秒數)
         await 成員.timeout(duration, reason=原因)
-        await interaction.response.send_message(f"已將 {成員.mention} 禁言 {時間}\n原因: {原因}")
+
+        await interaction.response.send_message(
+            f"已將 {成員.mention} 禁言\n"
+            f"時間：{天}天 {小時}小時 {分鐘}分鐘 {秒數}秒\n"
+            f"原因：{原因}"
+        )
+
     except Exception as e:
         await interaction.response.send_message(f"禁言失敗: {e}", ephemeral=True)
-
-
-@tree.command(name="解除禁言", description="解除成員禁言")
-@app_commands.checks.has_permissions(moderate_members=True)
-@app_commands.describe(成員="要解除禁言的成員")
-async def remove_timeout(interaction: discord.Interaction, 成員: discord.Member):
-    try:
-        await 成員.timeout(None)
-        await interaction.response.send_message(f"已解除 {成員.mention} 的禁言")
-    except Exception as e:
-        await interaction.response.send_message(f"解除禁言失敗: {e}", ephemeral=True)
 
 
 @tree.command(name="使用方式", description="顯示功能清單")
@@ -482,6 +511,7 @@ async def update_member_stats():
 
 token = os.environ.get("DISCORD_TOKEN")
 if token: bot.run(token)
+
 
 
 
