@@ -101,7 +101,7 @@ async def stats_setup(interaction: discord.Interaction):
     guild = interaction.guild
     overwrites = {guild.default_role: discord.PermissionOverwrite(connect=False), guild.me: discord.PermissionOverwrite(manage_channels=True, connect=True)}
     
-    cat = await guild.create_category("📊 伺服器數據", overwrites=overwrites)
+    cat = await guild.create_category("伺服器數據", overwrites=overwrites)
     c1 = await guild.create_voice_channel("總人數: 讀取中...", category=cat)
     c2 = await guild.create_voice_channel("人類數量: 讀取中...", category=cat)
     c3 = await guild.create_voice_channel("機器人: 讀取中...", category=cat)
@@ -140,7 +140,7 @@ async def play(interaction: discord.Interaction, 檔案: discord.Attachment):
     if not mgr.vc.is_playing(): mgr.play_next()
     await interaction.followup.send(f"已加入隊列: {檔案.filename}", view=MusicView(mgr))
 
-@tree.command(name="開始標註", description="標註轟炸")
+@tree.command(name="開始標註", description="轟炸")
 async def bomb(interaction: discord.Interaction, 成員: discord.Member, 內容: str, 次數: int):
     tag_targets[(interaction.guild.id, 成員.id)] = True
     await interaction.response.send_message(f"開始轟炸 {成員.name}")
