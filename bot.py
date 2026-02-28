@@ -260,13 +260,27 @@ async def set_log(interaction: discord.Interaction, 頻道: discord.TextChannel)
 
 @tree.command(name="加入", description="進入語音掛機")
 async def join_vc(interaction: discord.Interaction, 頻道: discord.VoiceChannel = None):
-    頻道 = 頻道 or (interaction.user.voice.channel if interaction.user.voice else None)
-    if not 頻道: return await interaction.response.send_message("請指定頻道", ephemeral=True)
-    await 頻道.connect(self_deaf=True)
-    stay_channels[str(interaction.guild.id)] = 頻道.id
-    stay_since[interaction.guild.id] = time.time()
-    save_config()
-    await interaction.response.send_message(f"已進入 {頻道.name} 掛機")
+    try:
+        頻道 = 頻道 or (interaction.user.voice.channel if interaction.user.voice else None)
+        if not 頻道:
+            return await interaction.response.send_message("請指定頻道", ephemeral=True)
+
+        if interaction.guild.voice_client:
+            await interaction.guild.voice_client.move_to(頻道)
+        else:
+            await 頻道.connect(self_deaf=True)
+
+        stay_channels[str(interaction.guild.id)] = 頻道.id
+        stay_since[interaction.guild.id] = time.time()
+        save_config()
+
+        await interaction.response.send_message(f"我進來 {頻道.name} 竊聽了")
+
+    except Exception as e:
+        if interaction.response.is_done():
+            await interaction.followup.send(f"發生錯誤：{e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"發生錯誤：{e}", ephemeral=True)
 
 @tree.command(name="播放", description="播放音檔")
 async def play_audio(interaction: discord.Interaction, 檔案: discord.Attachment):
@@ -413,3 +427,4 @@ async def update_member_stats():
 
 token = os.environ.get("DISCORD_TOKEN")
 if token: bot.run(token)
+
