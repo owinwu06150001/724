@@ -1,9 +1,0 @@
-discord.py
-PyNaCl
-yt-dlp
-flask
-ffmpeg-python
-static-ffmpeg
-psutil
-requests
-
