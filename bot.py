@@ -9,19 +9,16 @@ import psutil
 import static_ffmpeg
 from server import keep_alive
 import json
+import tempfile
 
-# ===== 1. 資料持久化邏輯 =====
+# ===== 1. 資料持久化邏輯 (保留原始欄位，僅移除過濾器) =====
 DATA_FILE = "config.json"
 
 def load_config():
     default = {
         "stay_channels": {}, 
         "stats_channels": {}, 
-        "log_system_channels": {}, 
-        "filter_config": {
-            "enabled": False, "log_channel_id": None, 
-            "keywords": ["幹", "靠", "垃圾", "智障", "腦癱", "死全家", "廢物", "操你媽"]
-        }
+        "log_system_channels": {}
     }
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, "r", encoding="utf-8") as f:
@@ -34,20 +31,24 @@ def load_config():
     return default
 
 def save_config():
+    """優化存檔邏輯，防止損壞檔案"""
     data = {
         "stay_channels": stay_channels,
         "stats_channels": stats_channels,
-        "log_system_channels": log_system_channels,
-        "filter_config": filter_config
+        "log_system_channels": log_system_channels
     }
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
+    try:
+        fd, temp_path = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(DATA_FILE)))
+        with os.fdopen(fd, 'w', encoding="utf-8") as f:
+            json.dump(data, f, indent=4, ensure_ascii=False)
+        os.replace(temp_path, DATA_FILE)
+    except Exception as e:
+        print(f"存檔出錯: {e}")
 
 _config = load_config()
 stay_channels = _config["stay_channels"]
 stats_channels = _config["stats_channels"]
 log_system_channels = _config["log_system_channels"]
-filter_config = _config["filter_config"]
 
 # 初始化服務
 static_ffmpeg.add_paths()
@@ -63,13 +64,14 @@ intents.presences = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 tree = bot.tree
 
+# 保留你原本的所有執行時變數
 stay_since = {}
 tag_targets = {}
 queues = {}
 
 FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
 
-# ===== 3. 音樂與工具類 =====
+# ===== 3. 音樂與工具類 (完整保留) =====
 class MusicManager:
     def __init__(self, vc):
         self.vc = vc
@@ -92,7 +94,7 @@ class MusicView(discord.ui.View):
         else: self.mgr.vc.resume()
         await i.response.defer()
 
-# ===== 4. 核心指令區 =====
+# ===== 4. 核心指令區 (完整保留，僅移除過濾器相關指令) =====
 
 @tree.command(name="設定統計頻道", description="建立全方位數據統計")
 @app_commands.checks.has_permissions(manage_channels=True)
@@ -111,13 +113,6 @@ async def stats_setup(interaction: discord.Interaction):
     save_config()
     await interaction.followup.send("統計頻道已建立，數據將在 10 分鐘內同步。")
 
-@tree.command(name="設定過濾器", description="自動禁言不雅字眼")
-async def set_filter(interaction: discord.Interaction, 啟用: bool, 日誌頻道: discord.TextChannel = None):
-    filter_config["enabled"] = 啟用
-    if 日誌頻道: filter_config["log_channel_id"] = 日誌頻道.id
-    save_config()
-    await interaction.response.send_message(f"過濾器已設定為: {啟用}")
-
 @tree.command(name="加入", description="語音掛機")
 async def join(interaction: discord.Interaction, 頻道: discord.VoiceChannel = None):
     ch = 頻道 or (interaction.user.voice.channel if interaction.user.voice else None)
@@ -132,7 +127,10 @@ async def join(interaction: discord.Interaction, 頻道: discord.VoiceChannel = 
 async def play(interaction: discord.Interaction, 檔案: discord.Attachment):
     await interaction.response.defer()
     if not interaction.guild.voice_client: 
-        await interaction.user.voice.channel.connect(self_deaf=True)
+        if interaction.user.voice:
+            await interaction.user.voice.channel.connect(self_deaf=True)
+        else:
+            return await interaction.followup.send("請先進入語音頻道")
     
     mgr = queues.get(interaction.guild.id) or MusicManager(interaction.guild.voice_client)
     queues[interaction.guild.id] = mgr
@@ -154,7 +152,7 @@ async def stop_bomb(interaction: discord.Interaction, 成員: discord.Member):
     tag_targets[(interaction.guild.id, 成員.id)] = False
     await interaction.response.send_message("已停止。")
 
-# ===== 5. 自動化循環任務 =====
+# ===== 5. 自動化循環任務 (完整保留) =====
 
 @tasks.loop(minutes=10)
 async def update_member_stats():
@@ -171,7 +169,7 @@ async def update_member_stats():
         for key, name in mapping.items():
             ch = bot.get_channel(cids.get(key))
             if ch and ch.name != name: 
-                try: await ch.edit(name=name); await asyncio.sleep(1)
+                try: await ch.edit(name=name); await asyncio.sleep(1.2)
                 except: pass
 
 @tasks.loop(seconds=30)
@@ -184,23 +182,21 @@ async def auto_reconnect():
                 try: await ch.connect(self_deaf=True)
                 except: pass
 
-# ===== 6. 事件監聽 =====
+# ===== 6. 事件監聽 (僅移除過濾器邏輯) =====
 
 @bot.event
 async def on_ready():
     await tree.sync()
-    update_member_stats.start()
-    auto_reconnect.start()
+    if not update_member_stats.is_running():
+        update_member_stats.start()
+    if not auto_reconnect.is_running():
+        auto_reconnect.start()
     print(f"機器人已上線: {bot.user}")
 
 @bot.event
 async def on_message(message):
     if message.author.bot: return
-    if filter_config["enabled"] and any(w in message.content for w in filter_config["keywords"]):
-        try:
-            await message.delete()
-            await message.author.timeout(datetime.timedelta(minutes=1))
-        except: pass
+    # 過濾器邏輯已在此處移除
     await bot.process_commands(message)
 
 token = os.environ.get("DISCORD_TOKEN")
