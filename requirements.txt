@@ -2,3 +2,4 @@ discord.py
 static-ffmpeg
 psutil
 flask
+PyNaCl
