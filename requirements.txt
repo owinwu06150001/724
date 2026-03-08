@@ -3,3 +3,7 @@ static-ffmpeg
 psutil
 flask
 PyNaCl
+discord.py
+PyNaCl
+Flask
+static_ffmpeg
