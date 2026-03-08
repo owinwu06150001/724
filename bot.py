@@ -192,15 +192,15 @@ async def play(interaction: discord.Interaction, 檔案: discord.Attachment):
     
     if not mgr.vc.is_playing():
         mgr.play_next()
-        await interaction.followup.send(f"🎵 正在播放: {檔案.filename}", view=MusicView(mgr))
+        await interaction.followup.send(f"正在播放: {檔案.filename}", view=MusicView(mgr))
     else:
-        await interaction.followup.send(f"➕ 已加入隊列: {檔案.filename}")
+        await interaction.followup.send(f"已加入隊列: {檔案.filename}")
 
-@tree.command(name="開始標註", description="重複標註特定成員")
+@tree.command(name="開始標註", description="轟炸某人")
 async def bomb(interaction: discord.Interaction, 成員: discord.Member, 內容: str, 次數: int):
     if 次數 > 50: 次數 = 50  # 防惡意過載安全閥
     tag_targets[(interaction.guild.id, 成員.id)] = True
-    await interaction.response.send_message(f"🚀 開始對 {成員.display_name} 執行標註任務")
+    await interaction.response.send_message(f"開始轟炸 {成員.display_name} ")
     
     for _ in range(次數):
         if not tag_targets.get((interaction.guild.id, 成員.id)): 
@@ -231,10 +231,10 @@ async def update_member_stats():
         o = len([m for m in guild.members if m.status != discord.Status.offline])
         
         mapping = {
-            "total": f"📊 總人數: {t}", 
-            "humans": f"👤 人類: {h}", 
-            "bots": f"🤖 機器人: {b}", 
-            "online": f"🟢 在線: {o}"
+            "total": f"總人數: {t}", 
+            "humans": f"人類: {h}", 
+            "bots": f"機器人: {b}", 
+            "online": f"在線: {o}"
         }
         
         for key, name in mapping.items():
