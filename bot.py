@@ -35,7 +35,6 @@ def save_config():
         "log_system_channels": log_system_channels
     }
     try:
-        # 使用臨時檔案寫入，防止存檔時當機導致 JSON 損壞
         fd, temp_path = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(DATA_FILE)))
         with os.fdopen(fd, 'w', encoding="utf-8") as f:
             json.dump(data, f, indent=4, ensure_ascii=False)
@@ -48,9 +47,7 @@ stay_channels = _config["stay_channels"]
 stats_channels = _config["stats_channels"]
 log_system_channels = _config["log_system_channels"]
 
-# 初始化服務
 static_ffmpeg.add_paths()
-keep_alive()
 
 # ===== 2. Bot 設定 =====
 class MyBot(commands.Bot):
@@ -63,7 +60,13 @@ class MyBot(commands.Bot):
         super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
-        # 啟動背景任務
+        # 針對 Render Docker 環境強化 Opus 載入
+        if not discord.opus.is_loaded():
+            try:
+                discord.opus.load_opus('libopus.so.0')
+            except Exception as e:
+                print(f"無法載入 Opus: {e}")
+        
         update_member_stats.start()
         auto_reconnect.start()
         await self.tree.sync()
@@ -71,7 +74,6 @@ class MyBot(commands.Bot):
 bot = MyBot()
 tree = bot.tree
 
-# 執行時變數
 stay_since = {}
 tag_targets = {}
 queues = {}
@@ -143,18 +145,16 @@ async def stats_setup(interaction: discord.Interaction):
 
     stats_channels[str(guild.id)] = {"total": c1.id, "humans": c2.id, "bots": c3.id, "online": c4.id}
     save_config()
-    await interaction.followup.send("統計頻道已建立，數據將在 10 分鐘內同步。")
+    await interaction.followup.send("統計頻道已建立，數據將在 10 分鐘內同步")
 
 @tree.command(name="加入", description="語音掛機駐紮")
 async def join(interaction: discord.Interaction, 頻道: discord.VoiceChannel = None):
-    # 如果沒指定頻道，就抓使用者所在的頻道
     target_ch = 頻道 or (interaction.user.voice.channel if interaction.user.voice else None)
     
     if not target_ch: 
         return await interaction.response.send_message("請先進入語音頻道或指定頻道")
 
     try:
-        # 檢查是否已經在語音頻道中，若在不同頻道則先移動
         vc = interaction.guild.voice_client
         if vc:
             if vc.channel.id == target_ch.id:
@@ -175,14 +175,12 @@ async def join(interaction: discord.Interaction, 頻道: discord.VoiceChannel = 
 async def play(interaction: discord.Interaction, 檔案: discord.Attachment):
     await interaction.response.defer()
     
-    # 檢查語音連接
     if not interaction.guild.voice_client:
         if interaction.user.voice:
             await interaction.user.voice.channel.connect(self_deaf=True)
         else:
             return await interaction.followup.send("請先進入語音頻道")
     
-    # 取得或創建該伺服器的專屬隊列
     mgr = queues.get(interaction.guild.id)
     if not mgr:
         mgr = MusicManager(interaction.guild.voice_client)
@@ -198,9 +196,9 @@ async def play(interaction: discord.Interaction, 檔案: discord.Attachment):
 
 @tree.command(name="開始標註", description="轟炸某人")
 async def bomb(interaction: discord.Interaction, 成員: discord.Member, 內容: str, 次數: int):
-    if 次數 > 50: 次數 = 50  # 防惡意過載安全閥
+    if 次數 > 50: 次數 = 50 
     tag_targets[(interaction.guild.id, 成員.id)] = True
-    await interaction.response.send_message(f"開始轟炸 {成員.display_name} ")
+    await interaction.response.send_message(f"開始轟炸 {成員.display_name}")
     
     for _ in range(次數):
         if not tag_targets.get((interaction.guild.id, 成員.id)): 
@@ -214,7 +212,7 @@ async def bomb(interaction: discord.Interaction, 成員: discord.Member, 內容:
 @tree.command(name="停止標註", description="停止當前的標註任務")
 async def stop_bomb(interaction: discord.Interaction, 成員: discord.Member):
     tag_targets[(interaction.guild.id, 成員.id)] = False
-    await interaction.response.send_message(f"⏹️ 已停止標註 {成員.display_name}")
+    await interaction.response.send_message(f"已停止標註 {成員.display_name}")
 
 # ===== 5. 自動化循環任務 =====
 
@@ -227,7 +225,6 @@ async def update_member_stats():
         t = guild.member_count
         b = len([m for m in guild.members if m.bot])
         h = t - b
-        # 統計除了離線以外的人數
         o = len([m for m in guild.members if m.status != discord.Status.offline])
         
         mapping = {
@@ -244,7 +241,7 @@ async def update_member_stats():
             if ch and ch.name != name:
                 try: 
                     await ch.edit(name=name)
-                    await asyncio.sleep(1.0) # 避免速率限制
+                    await asyncio.sleep(1.0)
                 except: pass
 
 @tasks.loop(seconds=30)
@@ -257,12 +254,11 @@ async def auto_reconnect():
                 try: await ch.connect(self_deaf=True)
                 except: pass
 
-# ===== 6. 事件監聽 (含日誌系統) =====
+# ===== 6. 事件監聽 =====
 
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
-    print("------")
 
 @bot.event
 async def on_message_delete(message):
@@ -271,9 +267,8 @@ async def on_message_delete(message):
     if log_id:
         log_ch = bot.get_channel(log_id)
         if log_ch:
-            embed = discord.Embed(title="🗑️ 訊息被刪除", color=0xff0000, timestamp=discord.utils.utcnow())
+            embed = discord.Embed(title="訊息被刪除", color=0xff0000, timestamp=discord.utils.utcnow())
             embed.add_field(name="作者", value=message.author.mention)
-            embed.add_field(name="頻道", value=message.channel.mention)
             embed.add_field(name="內容", value=message.content or "無文字內容", inline=False)
             await log_ch.send(embed=embed)
 
@@ -284,13 +279,14 @@ async def on_message_edit(before, after):
     if log_id:
         log_ch = bot.get_channel(log_id)
         if log_ch:
-            embed = discord.Embed(title="📝 訊息已修改", color=0xffff00, timestamp=discord.utils.utcnow())
+            embed = discord.Embed(title="訊息已修改", color=0xffff00, timestamp=discord.utils.utcnow())
             embed.add_field(name="作者", value=before.author.mention)
-            embed.add_field(name="頻道", value=before.channel.mention)
-            embed.add_field(name="修改前", value=before.content, inline=False)
-            embed.add_field(name="修改後", value=after.content, inline=False)
+            embed.add_field(name="修改前", value=before.content or "無文字內容", inline=False)
+            embed.add_field(name="修改後", value=after.content or "無文字內容", inline=False)
             await log_ch.send(embed=embed)
 
-token = os.environ.get("DISCORD_TOKEN")
-if token:
-    bot.run(token)
+if __name__ == "__main__":
+    keep_alive()
+    token = os.environ.get("DISCORD_TOKEN")
+    if token:
+        bot.run(token)
