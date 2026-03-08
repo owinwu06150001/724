@@ -1,7 +1,10 @@
-# 使用 Python 官方映像檔
+# 使用官方 Python 映像檔
 FROM python:3.11-slim
 
-# 安裝系統層級的語音支援與編譯工具
+# 安裝系統層級依賴
+# ffmpeg: 處理音訊
+# libffi-dev, libnacl-dev: 語音加密必備
+# gcc, python3-dev: 編譯套件必備
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     libffi-dev \
@@ -10,15 +13,17 @@ RUN apt-get update && apt-get install -y \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# 設定工作目錄
 WORKDIR /app
 
-# 複製並安裝 Python 依賴項
+# 安裝 Python 依賴
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 複製專案程式碼
+# 複製所有程式碼
 COPY . .
 
-# 啟動機器人
-CMD ["python", "main.py"]
+# 暴露 keep_alive 使用的埠口 (預設 8080)
+EXPOSE 8080
+
+# 啟動指令
+CMD ["python", "bot.py"]
