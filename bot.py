@@ -7,6 +7,7 @@ import asyncio
 import json
 import tempfile
 import static_ffmpeg
+import datetime
 from server import keep_alive
 
 # ===== 1. 資料持久化邏輯 =====
@@ -60,7 +61,6 @@ class MyBot(commands.Bot):
         super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
-        # 針對 Render Docker 環境強化 Opus 載入
         if not discord.opus.is_loaded():
             try:
                 discord.opus.load_opus('libopus.so.0')
@@ -96,11 +96,14 @@ class MusicManager:
             return
         
         self.current = self.queue.pop(0)
-        source = discord.PCMVolumeTransformer(
-            discord.FFmpegPCMAudio(self.current[0], **FFMPEG_OPTIONS), 
-            volume=0.5
-        )
-        self.vc.play(source, after=lambda e: bot.loop.call_soon_threadsafe(self.play_next))
+        try:
+            source = discord.PCMVolumeTransformer(
+                discord.FFmpegPCMAudio(self.current[0], **FFMPEG_OPTIONS), 
+                volume=0.5
+            )
+            self.vc.play(source, after=lambda e: bot.loop.call_soon_threadsafe(self.play_next))
+        except:
+            self.play_next()
 
 class MusicView(discord.ui.View):
     def __init__(self, mgr):
@@ -119,6 +122,25 @@ class MusicView(discord.ui.View):
             await interaction.response.send_message("目前沒有音樂在播放", ephemeral=True)
 
 # ===== 4. 指令區 =====
+
+@tree.command(name="禁言", description="將成員禁言（逾時）")
+@app_commands.checks.has_permissions(moderate_members=True)
+async def timeout(interaction: discord.Interaction, 成員: discord.Member, 分鐘: int, 原因: str = "未提供原因"):
+    try:
+        duration = datetime.timedelta(minutes=分鐘)
+        await 成員.timeout(duration, reason=原因)
+        await interaction.response.send_message(f"已將 {成員.mention} 禁言 {分鐘} 分鐘，原因：{原因}")
+    except Exception as e:
+        await interaction.response.send_message(f"禁言失敗: {e}", ephemeral=True)
+
+@tree.command(name="移除身分組", description="移除指定成員的身分組")
+@app_commands.checks.has_permissions(manage_roles=True)
+async def remove_role(interaction: discord.Interaction, 成員: discord.Member, 身分組: discord.Role):
+    try:
+        await 成員.remove_roles(身分組)
+        await interaction.response.send_message(f"已從 {成員.mention} 身上移除身分組：{身分組.name}")
+    except Exception as e:
+        await interaction.response.send_message(f"移除失敗: {e}", ephemeral=True)
 
 @tree.command(name="設定日誌頻道", description="設定訊息刪除/修改的記錄頻道")
 @app_commands.checks.has_permissions(manage_channels=True)
@@ -222,7 +244,7 @@ async def update_member_stats():
         guild = bot.get_guild(int(gid_str))
         if not guild: continue
         
-        t = guild.member_count
+        t = guild.member_count or 0
         b = len([m for m in guild.members if m.bot])
         h = t - b
         o = len([m for m in guild.members if m.status != discord.Status.offline])
