@@ -147,15 +147,29 @@ async def stats_setup(interaction: discord.Interaction):
 
 @tree.command(name="加入", description="語音掛機駐紮")
 async def join(interaction: discord.Interaction, 頻道: discord.VoiceChannel = None):
-    ch = 頻道 or (interaction.user.voice.channel if interaction.user.voice else None)
-    if not ch: 
-        return await interaction.response.send_message("請先進入語音頻道或指定頻道")
+    # 如果沒指定頻道，就抓使用者所在的頻道
+    target_ch = 頻道 or (interaction.user.voice.channel if interaction.user.voice else None)
     
-    await ch.connect(self_deaf=True)
-    stay_channels[str(interaction.guild.id)] = ch.id
-    stay_since[interaction.guild.id] = time.time()
-    save_config()
-    await interaction.response.send_message(f"✅ 已成功駐紮於 {ch.name}")
+    if not target_ch: 
+        return await interaction.response.send_message("請先進入語音頻道或指定頻道")
+
+    try:
+        # 檢查是否已經在語音頻道中，若在不同頻道則先移動
+        vc = interaction.guild.voice_client
+        if vc:
+            if vc.channel.id == target_ch.id:
+                return await interaction.response.send_message(f"我已經在 {target_ch.name} 了")
+            await vc.move_to(target_ch)
+        else:
+            await target_ch.connect(self_deaf=True)
+            
+        stay_channels[str(interaction.guild.id)] = target_ch.id
+        stay_since[interaction.guild.id] = time.time()
+        save_config()
+        await interaction.response.send_message(f"已進入 {target_ch.name} 竊聽了")
+        
+    except Exception as e:
+        await interaction.response.send_message(f"無法加入頻道: {e}")
 
 @tree.command(name="播放", description="上傳音檔並播放")
 async def play(interaction: discord.Interaction, 檔案: discord.Attachment):
