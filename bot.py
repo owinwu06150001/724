@@ -330,15 +330,30 @@ async def show_logs(interaction: discord.Interaction, 筆數: int = 5):
     await interaction.followup.send(log_text)
 
 # ===== 背景任務 =====
-@tasks.loop(seconds=30)
+@tasks.loop(seconds=1)
 async def check_connection():
     for gid, cid in list(stay_channels.items()):
         guild = bot.get_guild(gid)
-        if not guild or (guild.voice_client and guild.voice_client.is_connected()): continue
+        if not guild: continue
+        
+        vc = guild.voice_client
+        # 如果已經連線，且正在運作，則不進行任何動作
+        if vc and vc.is_connected():
+            continue
+            
+        # 如果連線狀態異常，強制清理並重連
+        if vc:
+            try:
+                await vc.disconnect()
+            except:
+                pass
+        
         ch = bot.get_channel(cid)
-        if ch: 
-            try: await ch.connect(self_deaf=True)
-            except: pass
+        if ch:
+            try:
+                await ch.connect(self_deaf=True)
+            except Exception as e:
+                print(f"嘗試重連時發生錯誤: {e}")
 
 @tasks.loop(minutes=10)
 async def update_member_stats():
