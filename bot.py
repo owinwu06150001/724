@@ -32,6 +32,9 @@ tag_targets = {}
 stats_channels = {}
 queues = {} 
 
+# 歡迎訊息頻道 ID (請替換為實際的頻道 ID 數字)
+WELCOME_CHANNEL_ID = None
+
 # ===== 擴充後的不雅語言詞庫 =====
 COMMON_PROFANITY = [
     "幹", "靠", "屁", "垃圾", "智障", "腦癱", "死全家", "孤兒", 
@@ -81,13 +84,14 @@ def get_help_text(bot_mention):
         "* /新增過濾詞彙：手動加入關鍵字。\n"
         "* /狀態：查看掛機時間與延遲。\n"
         "* /移除身分組 / /給予身分組：管理成員權限。\n"
-        "* /建立身分組面板 [身分組]：發送按鈕面板。\n"
+        "* /建立身分組面板 [身分組] [圖片網址]：發送按鈕面板。\n"
+        "* /設定歡迎頻道 [頻道]：設定歡迎訊息發送位置。\n"
         "* /查看審核日誌：查看操作紀錄。\n"
         "* /使用方式：顯示本手冊。"
     )
 
 # =========================================================
-# ===== 核心邏輯 (轟炸、音樂、按鈕) =====
+# ===== 核心邏輯 (按鈕、轟炸與音樂管理類別) =====
 # =========================================================
 
 class RoleButtonView(discord.ui.View):
@@ -95,14 +99,14 @@ class RoleButtonView(discord.ui.View):
         super().__init__(timeout=None)
         self.role_id = role_id
 
-    @discord.ui.button(label="取得身分組", style=discord.ButtonStyle.success, custom_id="role_add")
+    @discord.ui.button(label="取得身分組", style=discord.ButtonStyle.success, custom_id="role_add_persistent")
     async def add_role(self, interaction: discord.Interaction, button: discord.ui.Button):
         role = interaction.guild.get_role(self.role_id)
         if role:
             await interaction.user.add_roles(role)
             await interaction.response.send_message(f"已獲取 {role.name} 身分組", ephemeral=True)
 
-    @discord.ui.button(label="移除身分組", style=discord.ButtonStyle.danger, custom_id="role_remove")
+    @discord.ui.button(label="移除身分組", style=discord.ButtonStyle.danger, custom_id="role_remove_persistent")
     async def remove_role(self, interaction: discord.Interaction, button: discord.ui.Button):
         role = interaction.guild.get_role(self.role_id)
         if role:
@@ -169,8 +173,9 @@ class MusicControlView(discord.ui.View):
         await interaction.response.edit_message(embed=self.manager.get_status_embed(), view=self)
 
 # =========================================================
-# ===== 事件監聽 =====
+# ===== 事件監聽 (過濾器、標註、歡迎訊息與持久化按鈕) =====
 # =========================================================
+
 @bot.event
 async def on_message(message):
     if message.author.bot: return
@@ -199,10 +204,25 @@ async def on_message(message):
 
 @bot.event
 async def on_ready():
+    # 重新註冊持久化按鈕
+    # bot.add_view(RoleButtonView(身分組ID)) 視需求填入
+    
     await tree.sync()
     update_member_stats.start()
     check_connection.start()
     print(f"機器人已啟動：{bot.user}")
+
+@bot.event
+async def on_member_join(member):
+    if WELCOME_CHANNEL_ID:
+        channel = bot.get_channel(WELCOME_CHANNEL_ID)
+        if channel:
+            embed = discord.Embed(
+                title="歡迎訊息",
+                description=f"你好 歡迎 加入 憨兒俱樂部\n\n{member.mention}\n\n你是本伺服器的第 {member.guild.member_count} 位成員",
+                color=0xaa96da
+            )
+            await channel.send(embed=embed)
 
 # =========================================================
 # ===== 中文指令區 =====
@@ -214,10 +234,21 @@ async def show_help(interaction: discord.Interaction):
 
 @tree.command(name="建立身分組面板", description="發送身分組按鈕面板")
 @app_commands.checks.has_permissions(manage_roles=True)
-async def setup_role_panel(interaction: discord.Interaction, 身分組: discord.Role):
+async def setup_role_panel(interaction: discord.Interaction, 身分組: discord.Role, 圖片網址: str = None):
     view = RoleButtonView(身分組.id)
     embed = discord.Embed(title="身分組", description=f"點擊下方按鈕可 獲取/移除 {身分組.mention} 身分組", color=0xaa96da)
+    if 圖片網址:
+        embed.set_thumbnail(url=圖片網址)
+    
+    bot.add_view(view)
     await interaction.response.send_message(embed=embed, view=view)
+
+@tree.command(name="設定歡迎頻道", description="設定歡迎訊息發送位置")
+@app_commands.checks.has_permissions(manage_guild=True)
+async def set_welcome_channel(interaction: discord.Interaction, 頻道: discord.TextChannel):
+    global WELCOME_CHANNEL_ID
+    WELCOME_CHANNEL_ID = 頻道.id
+    await interaction.response.send_message(f"歡迎頻道已設定為：{頻道.mention}")
 
 @tree.command(name="設定過濾器", description="開啟/關閉禁言系統")
 @app_commands.describe(開啟="是否啟動", 記錄頻道="違規訊息日誌頻道")
@@ -363,15 +394,21 @@ async def check_connection():
     for gid, cid in list(stay_channels.items()):
         guild = bot.get_guild(gid)
         if not guild: continue
+        
         vc = guild.voice_client
         if vc and vc.is_connected():
             continue
+            
         if vc:
-            try: await vc.disconnect()
-            except: pass
+            try:
+                await vc.disconnect()
+            except:
+                pass
+        
         ch = bot.get_channel(cid)
         if ch:
-            try: await ch.connect(self_deaf=True)
+            try:
+                await ch.connect(self_deaf=True)
             except Exception as e:
                 print(f"嘗試重連時發生錯誤: {e}")
 
@@ -384,12 +421,14 @@ async def update_member_stats():
             bots = len([m for m in guild.members if m.bot])
             humans = total - bots
             online = len([m for m in guild.members if m.status != discord.Status.offline])
+            
             data_map = {
                 "total": f"全部人數: {total}",
                 "humans": f"成員人數: {humans}",
                 "online": f"在線成員: {online}",
                 "bots": f"機器人: {bots}"
             }
+            
             for key, name in data_map.items():
                 ch = bot.get_channel(stats.get(key))
                 if ch:
