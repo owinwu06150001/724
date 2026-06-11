@@ -63,7 +63,7 @@ AUDIT_LOG_ACTIONS_CN = {
     "message_delete": "刪除訊息", "message_bulk_delete": "批量刪除訊息",
 }
 
-# ===== 公用手冊內容 (無表情符號) =====
+# ===== 公用手冊內容 =====
 def get_help_text(bot_mention):
     return (
         f"## {bot_mention} 使用手冊\n"
@@ -81,13 +81,34 @@ def get_help_text(bot_mention):
         "* /新增過濾詞彙：手動加入關鍵字。\n"
         "* /狀態：查看掛機時間與延遲。\n"
         "* /移除身分組 / /給予身分組：管理成員權限。\n"
+        "* /建立身分組面板 [身分組]：發送按鈕面板。\n"
         "* /查看審核日誌：查看操作紀錄。\n"
         "* /使用方式：顯示本手冊。"
     )
 
 # =========================================================
-# ===== 核心邏輯 (轟炸與音樂管理類別) =====
+# ===== 核心邏輯 (轟炸、音樂、按鈕) =====
 # =========================================================
+
+class RoleButtonView(discord.ui.View):
+    def __init__(self, role_id):
+        super().__init__(timeout=None)
+        self.role_id = role_id
+
+    @discord.ui.button(label="取得身分組", style=discord.ButtonStyle.success, custom_id="role_add")
+    async def add_role(self, interaction: discord.Interaction, button: discord.ui.Button):
+        role = interaction.guild.get_role(self.role_id)
+        if role:
+            await interaction.user.add_roles(role)
+            await interaction.response.send_message(f"已獲取 {role.name} 身分組", ephemeral=True)
+
+    @discord.ui.button(label="移除身分組", style=discord.ButtonStyle.danger, custom_id="role_remove")
+    async def remove_role(self, interaction: discord.Interaction, button: discord.ui.Button):
+        role = interaction.guild.get_role(self.role_id)
+        if role:
+            await interaction.user.remove_roles(role)
+            await interaction.response.send_message(f"已移除 {role.name} 身分組", ephemeral=True)
+
 async def tag_logic(channel, target, content, times):
     for i in range(times):
         if tag_targets.get(target.id) is False:
@@ -148,7 +169,7 @@ class MusicControlView(discord.ui.View):
         await interaction.response.edit_message(embed=self.manager.get_status_embed(), view=self)
 
 # =========================================================
-# ===== 事件監聽 (過濾器與標註手冊) =====
+# ===== 事件監聽 =====
 # =========================================================
 @bot.event
 async def on_message(message):
@@ -190,6 +211,13 @@ async def on_ready():
 @tree.command(name="使用方式", description="顯示功能清單")
 async def show_help(interaction: discord.Interaction):
     await interaction.response.send_message(get_help_text(bot.user.mention))
+
+@tree.command(name="建立身分組面板", description="發送身分組按鈕面板")
+@app_commands.checks.has_permissions(manage_roles=True)
+async def setup_role_panel(interaction: discord.Interaction, 身分組: discord.Role):
+    view = RoleButtonView(身分組.id)
+    embed = discord.Embed(title="身分組", description=f"點擊下方按鈕可 獲取/移除 {身分組.mention} 身分組", color=0xaa96da)
+    await interaction.response.send_message(embed=embed, view=view)
 
 @tree.command(name="設定過濾器", description="開啟/關閉禁言系統")
 @app_commands.describe(開啟="是否啟動", 記錄頻道="違規訊息日誌頻道")
@@ -335,23 +363,15 @@ async def check_connection():
     for gid, cid in list(stay_channels.items()):
         guild = bot.get_guild(gid)
         if not guild: continue
-        
         vc = guild.voice_client
-        # 如果已經連線，且正在運作，則不進行任何動作
         if vc and vc.is_connected():
             continue
-            
-        # 如果連線狀態異常，強制清理並重連
         if vc:
-            try:
-                await vc.disconnect()
-            except:
-                pass
-        
+            try: await vc.disconnect()
+            except: pass
         ch = bot.get_channel(cid)
         if ch:
-            try:
-                await ch.connect(self_deaf=True)
+            try: await ch.connect(self_deaf=True)
             except Exception as e:
                 print(f"嘗試重連時發生錯誤: {e}")
 
@@ -364,14 +384,12 @@ async def update_member_stats():
             bots = len([m for m in guild.members if m.bot])
             humans = total - bots
             online = len([m for m in guild.members if m.status != discord.Status.offline])
-            
             data_map = {
                 "total": f"全部人數: {total}",
                 "humans": f"成員人數: {humans}",
                 "online": f"在線成員: {online}",
                 "bots": f"機器人: {bots}"
             }
-            
             for key, name in data_map.items():
                 ch = bot.get_channel(stats.get(key))
                 if ch:
