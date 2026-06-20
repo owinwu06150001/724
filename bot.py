@@ -193,8 +193,15 @@ async def on_ready():
     await tree.sync()
     update_member_stats.start()
     check_connection.start()
-    update_web_stats.start() # 新增：啟動網頁監控數據更新
-    print(f"機器人已啟動：{bot.user}")
+    log_event("機器人已啟動並連線至 Discord")
+    print("機器人已啟動") # Render 的 Logs 區也會看到這個
+    update_web_stats.start()
+
+    
+    
+    log_event("機器人已啟動並連線至 Discord")
+    print("機器人已啟動") # Render 的 Logs 區也會看到這個
+    update_web_stats.start()
 
 # 新增：監控數據更新任務
 @tasks.loop(minutes=1)
