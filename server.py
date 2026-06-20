@@ -23,14 +23,14 @@ def add_log(message):
 def broadcast():
     password = request.form.get('password')
     if password != ADMIN_PASS:
-        return "密碼錯誤，拒絕執行！", 403
+        return "密碼錯誤 拒絕執行！", 403
     
     msg = request.form.get('message')
     channel_id = request.form.get('channel_id')
     if msg and channel_id:
         try:
             bot_status["broadcast_queue"].append({"msg": msg, "cid": int(channel_id)})
-            return "訊息已排入廣播佇列，機器人將於 5 秒內發送。"
+            return "訊息已排入廣播佇列 機器人將於 5 秒內發送"
         except ValueError:
             return "頻道 ID 必須為數字"
     return "請輸入訊息與頻道 ID"
