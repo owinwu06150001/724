@@ -9,9 +9,6 @@ import psutil
 import static_ffmpeg
 import server  # 匯入整個 server 模組
 
-
-
-bot = commands.Bot(command_prefix="!", intents=intents)
 # 初始化 FFMPEG
 static_ffmpeg.add_paths()
 
@@ -27,7 +24,13 @@ intents.message_content = True
 intents.voice_states = True
 intents.members = True
 intents.presences = True
-intents.guilds = True  # 必須確保這行存在！
+intents.guilds = True 
+
+# 2. 然後才能建立 bot
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+# 3. 接著設定 server
+server.set_bot(bot)# 必須確保這行存在！
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 tree = bot.tree
