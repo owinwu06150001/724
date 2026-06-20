@@ -212,8 +212,15 @@ async def on_ready():
 @tasks.loop(minutes=1)
 async def update_web_stats():
     # 1. 採集系統數據
+
+    # 更新系統數據
     server.bot_status["cpu"] = psutil.cpu_percent()
     server.bot_status["ram"] = psutil.virtual_memory().percent
+    server.bot_status["latency"] = round(bot.latency * 1000)
+    
+    # 這裡的伺服器資訊現在會直接透過 _bot 實例在網頁端讀取，
+    # 但若你想保留內部清單同步，也可以這樣做：
+    server.bot_status["guild_count"] = len(bot.guilds)
     
     # 2. Discord 狀態
     server.bot_status["guild_count"] = len(bot.guilds)
