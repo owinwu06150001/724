@@ -190,19 +190,23 @@ async def on_message(message):
 
 @bot.event
 async def on_ready():
-    log_event("機器人已啟動成功")
-    
-    # 修改這裡：檢查任務是否已經在運行，如果沒有才啟動
+    # 執行任務啟動檢查
     if not update_web_stats.is_running():
         update_web_stats.start()
         print("Web stats task started.")
-    else:
-        print("Web stats task is already running.")
     
+    # 啟動其他必要的循環任務
+    if not check_connection.is_running():
+        check_connection.start()
     
-    log_event("機器人已啟動並連線至 Discord")
-    print("機器人已啟動") # Render 的 Logs 區也會看到這個
-    update_web_stats.start()
+    if not update_member_stats.is_running():
+        update_member_stats.start()
+
+    # 同步指令樹
+    await bot.tree.sync()
+    
+    log_event("機器人已啟動成功")
+    print("機器人已啟動並連線至 Discord")
 
 # 新增：監控數據更新任務
 @tasks.loop(minutes=1)
