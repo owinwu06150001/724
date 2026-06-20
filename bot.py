@@ -196,9 +196,20 @@ async def on_ready():
 # 新增：監控數據更新任務
 @tasks.loop(minutes=1)
 async def update_web_stats():
-    bot_status["guild_count"] = len(bot.guilds)
-    bot_status["user_count"] = sum(g.member_count for g in bot.guilds)
-    bot_status["latency"] = round(bot.latency * 1000)
+    # 更新全域統計
+    server.bot_status["guild_count"] = len(bot.guilds)
+    server.bot_status["user_count"] = sum(g.member_count for g in bot.guilds)
+    server.bot_status["latency"] = round(bot.latency * 1000)
+    
+    # 更新個別伺服器詳細清單
+    guild_list = []
+    for g in bot.guilds:
+        guild_list.append({
+            "name": g.name,
+            "members": g.member_count,
+            "status": "連線中" if g.available else "離線"
+        })
+    server.bot_status["guilds"] = guild_list
 
 @bot.event
 async def on_member_join(member):
