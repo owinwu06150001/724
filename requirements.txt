@@ -3,3 +3,4 @@ flask
 flask-cors
 psutil
 static-ffmpeg
+PyNaCl
