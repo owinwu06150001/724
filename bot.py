@@ -205,13 +205,16 @@ async def update_web_stats():
     # 更新個別伺服器詳細清單
     guild_list = []
     for g in bot.guilds:
+        # 使用 g.unavailable 來判斷狀態
+        # 如果 g.unavailable 為 True，則代表伺服器目前無法使用 (離線)
+        # 若為 False，則代表連線正常
         guild_list.append({
-            "name": g.name,
-            "members": g.member_count,
-            "status": "連線中" if g.available else "離線"
+            "name": str(g.name),
+            "members": int(g.member_count),
+            "status": "離線" if g.unavailable else "連線中"
         })
     server.bot_status["guilds"] = guild_list
-
+    
 @bot.event
 async def on_member_join(member):
     channel_id = welcome_channels.get(member.guild.id)
