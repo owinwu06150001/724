@@ -202,7 +202,8 @@ async def on_member_join(member):
         if channel:
             embed = discord.Embed(
                 title="歡迎訊息",
-                description=f"你好 歡迎 加入 憨兒俱樂部\n\n{member.mention}\n\n你是本伺服器的第 {member.guild.member_count} 位成員",
+                # 修改此處，加入 member.guild.name 顯示伺服器名稱
+                description=f"你好，歡迎加入 {member.guild.name}！\n\n{member.mention}\n\n你是本伺服器的第 {member.guild.member_count} 位成員",
                 color=0xaa96da
             )
             await channel.send(embed=embed)
