@@ -197,23 +197,20 @@ async def on_ready():
 # 新增：監控數據更新任務
 @tasks.loop(minutes=1)
 async def update_web_stats():
-    # 更新全域統計
+    # 資源監控
+    server.bot_status["cpu"] = psutil.cpu_percent()
+    server.bot_status["ram"] = psutil.virtual_memory().percent
+    
+    # Discord 狀態
     server.bot_status["guild_count"] = len(bot.guilds)
     server.bot_status["user_count"] = sum(g.member_count for g in bot.guilds)
     server.bot_status["latency"] = round(bot.latency * 1000)
     
-    # 更新個別伺服器詳細清單
-    guild_list = []
-    for g in bot.guilds:
-        # 使用 g.unavailable 來判斷狀態
-        # 如果 g.unavailable 為 True，則代表伺服器目前無法使用 (離線)
-        # 若為 False，則代表連線正常
-        guild_list.append({
-            "name": str(g.name),
-            "members": int(g.member_count),
-            "status": "離線" if g.unavailable else "連線中"
-        })
-    server.bot_status["guilds"] = guild_list
+    server.bot_status["guilds"] = [{
+        "name": g.name,
+        "members": g.member_count,
+        "status": "離線" if g.unavailable else "連線中"
+    } for g in bot.guilds]
     
 @bot.event
 async def on_member_join(member):
