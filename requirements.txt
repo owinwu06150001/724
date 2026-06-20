@@ -1,5 +1,5 @@
-discord.py[voice]
-PyNaCl
-static_ffmpeg
-psutil
+discord.py
 flask
+flask-cors
+psutil
+static-ffmpeg
