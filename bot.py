@@ -15,7 +15,9 @@ static_ffmpeg.add_paths()
 # ===== 啟動 Web 服務 =====
 server.keep_alive()  # 這裡要改成 server.keep_alive()
 
-
+# 記錄日誌的函式 (直接呼叫 server 的功能)
+def log_event(msg):
+    server.add_log(msg)
 # ===== Intents 設定 =====
 intents = discord.Intents.default()
 intents.message_content = True
@@ -197,18 +199,19 @@ async def on_ready():
 # 新增：監控數據更新任務
 @tasks.loop(minutes=1)
 async def update_web_stats():
-    # 資源監控
+    # 1. 採集系統數據
     server.bot_status["cpu"] = psutil.cpu_percent()
     server.bot_status["ram"] = psutil.virtual_memory().percent
     
-    # Discord 狀態
+    # 2. Discord 狀態
     server.bot_status["guild_count"] = len(bot.guilds)
     server.bot_status["user_count"] = sum(g.member_count for g in bot.guilds)
     server.bot_status["latency"] = round(bot.latency * 1000)
     
+    # 3. 伺服器清單
     server.bot_status["guilds"] = [{
-        "name": g.name,
-        "members": g.member_count,
+        "name": str(g.name),
+        "members": int(g.member_count),
         "status": "離線" if g.unavailable else "連線中"
     } for g in bot.guilds]
     
