@@ -38,7 +38,7 @@ def index():
             </style>
         </head>
         <body>
-            <h1>機器人監控儀表板</h1>
+            <h1>機器人監控</h1>
             <div class="grid">
                 <div class="card"><h3>CPU 使用率</h3><p>{bot_status['cpu']}%</p></div>
                 <div class="card"><h3>RAM 使用</h3><p>{bot_status['ram']}%</p></div>
