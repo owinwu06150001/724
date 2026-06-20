@@ -7,7 +7,7 @@ import asyncio
 import datetime
 import psutil
 import static_ffmpeg
-from server import keep_alive
+from server import keep_alive, bot_status # 額外匯入 API 服務與狀態字典
 
 # 初始化 FFMPEG
 static_ffmpeg.add_paths()
@@ -25,14 +25,14 @@ intents.presences = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 tree = bot.tree
 
-# ===== 資料儲存 (已改為字典隔離，key 為 guild_id) =====
+# ===== 資料儲存 =====
 stay_channels = {}
 stay_since = {}
 tag_targets = {}
 stats_channels = {}
 queues = {}
-welcome_channels = {}  # 修正：儲存各伺服器的歡迎頻道ID
-filter_configs = {}    # 修正：儲存各伺服器的過濾設定
+welcome_channels = {} 
+filter_configs = {} 
 
 # ===== 不雅語言預設詞庫 =====
 COMMON_PROFANITY = [
@@ -43,13 +43,11 @@ COMMON_PROFANITY = [
     "支那", "下流", "無恥", "欠幹", "狗娘養的", "尼瑪"
 ]
 
-# ===== 播放音檔設定 =====
 FFMPEG_OPTIONS = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
     'options': '-vn',
 }
 
-# ===== 審核日誌對照表 =====
 AUDIT_LOG_ACTIONS_CN = {
     "guild_update": "更新伺服器", "channel_create": "建立頻道", "channel_update": "更新頻道",
     "channel_delete": "刪除頻道", "member_kick": "踢出成員", "member_ban": "封鎖成員",
@@ -192,7 +190,15 @@ async def on_ready():
     await tree.sync()
     update_member_stats.start()
     check_connection.start()
+    update_web_stats.start() # 新增：啟動網頁監控數據更新
     print(f"機器人已啟動：{bot.user}")
+
+# 新增：監控數據更新任務
+@tasks.loop(minutes=1)
+async def update_web_stats():
+    bot_status["guild_count"] = len(bot.guilds)
+    bot_status["user_count"] = sum(g.member_count for g in bot.guilds)
+    bot_status["latency"] = round(bot.latency * 1000)
 
 @bot.event
 async def on_member_join(member):
@@ -202,7 +208,6 @@ async def on_member_join(member):
         if channel:
             embed = discord.Embed(
                 title="歡迎訊息",
-                # 修改此處，加入 member.guild.name 顯示伺服器名稱
                 description=f"你好 歡迎加入 {member.guild.name}！\n\n{member.mention}\n\n你是本伺服器的第 {member.guild.member_count} 位成員",
                 color=0xaa96da
             )
