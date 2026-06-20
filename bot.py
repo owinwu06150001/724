@@ -7,8 +7,7 @@ import asyncio
 import datetime
 import psutil
 import static_ffmpeg
-from server import keep_alive, bot_status # 額外匯入 API 服務與狀態字典
-
+import server  # 改成這樣匯入整個模組
 # 初始化 FFMPEG
 static_ffmpeg.add_paths()
 
