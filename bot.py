@@ -7,12 +7,14 @@ import asyncio
 import datetime
 import psutil
 import static_ffmpeg
-import server  # 改成這樣匯入整個模組
+import server  # 匯入整個 server 模組
+
 # 初始化 FFMPEG
 static_ffmpeg.add_paths()
 
 # ===== 啟動 Web 服務 =====
-keep_alive()
+server.keep_alive()  # 這裡要改成 server.keep_alive()
+
 
 # ===== Intents 設定 =====
 intents = discord.Intents.default()
