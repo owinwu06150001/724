@@ -1,4 +1,3 @@
-# server.py (完整內容)
 from flask import Flask, request, jsonify
 from threading import Thread
 import os
@@ -15,7 +14,7 @@ def set_bot(bot_instance):
 ADMIN_PASS = os.environ.get("ADMIN_PASS", "111000")
 
 bot_status = {
-    "latency": 0, "cpu": 0, "ram": 0, "logs": [], "broadcast_queue": []
+    "latency": 0, "cpu": 0, "ram": 0, "logs": [], "broadcast_queue": [], "restart_requested": False
 }
 
 def add_log(message):
@@ -25,7 +24,7 @@ def add_log(message):
 
 @app.route('/get_channels/<int:guild_id>')
 def get_channels(guild_id):
-    if not _bot: return jsonify([])
+    if not _bot or not _bot.is_ready(): return jsonify([])
     guild = _bot.get_guild(guild_id)
     channels = [{"id": c.id, "name": c.name} for c in guild.text_channels] if guild else []
     return jsonify(channels)
@@ -45,22 +44,24 @@ def index():
     admin_msg = ""
     if request.method == 'POST':
         if request.form.get('password') == ADMIN_PASS:
-            if request.form.get('action') == "clear_logs": bot_status["logs"] = []
-            admin_msg = "操作已執行"
+            action = request.form.get('action')
+            if action == "clear_logs": 
+                bot_status["logs"] = []
+                admin_msg = "日誌已清除"
+            elif action == "restart":
+                bot_status["restart_requested"] = True
+                admin_msg = "已發送重啟指令，機器人將於數秒後重啟"
         else: admin_msg = "密碼錯誤"
 
-    # 這裡改用 try-except 確保不會因為讀取時機點錯誤而崩潰
-    guild_list = []
-    if _bot and hasattr(_bot, 'guilds'):
-        guild_list = _bot.guilds
-        
-    guild_rows = "".join([f"<tr><td>{g.name}</td><td>{g.member_count}</td><td>連線中</td></tr>" for g in guild_list]) if guild_list else "<tr><td colspan='3'>機器人正在連線中...</td></tr>"
+    guild_list = _bot.guilds if _bot and _bot.is_ready() else []
+    guild_rows = "".join([f"<tr><td>{g.name}</td><td>{g.member_count}</td><td>連線中</td></tr>" for g in guild_list]) if guild_list else "<tr><td colspan='3'>機器人正在啟動中...</td></tr>"
     guild_options = "".join([f'<option value="{g.id}">{g.name}</option>' for g in guild_list]) if guild_list else ""
     
     return f"""
     <html>
         <body style="background: #0f172a; color: white; padding: 20px; font-family: sans-serif;">
             <h1>機器人管理後台</h1>
+            <p>{admin_msg}</p>
             <div style="background: #1e293b; padding: 20px; border-radius: 8px;">
                 <h3>系統監控</h3>
                 <p>CPU: {bot_status['cpu']}% | RAM: {bot_status['ram']}% | 延遲: {bot_status['latency']}ms</p>
@@ -73,15 +74,24 @@ def index():
             <div style="margin-top: 20px; display: flex; gap: 20px;">
                 <div style="background: #334155; padding: 20px; border-radius: 8px; flex: 1;">
                     <h3>管理操作</h3>
-                    <form method="POST"><input type="password" name="password" placeholder="密碼" required><br>
-                    <select name="action"><option value="clear_logs">清除日誌</option></select><button type="submit">執行</button></form>
+                    <form method="POST">
+                        <input type="password" name="password" placeholder="密碼" required><br>
+                        <select name="action">
+                            <option value="clear_logs">清除日誌</option>
+                            <option value="restart">重啟機器人</option>
+                        </select>
+                        <button type="submit">執行</button>
+                    </form>
                 </div>
                 <div style="background: #334155; padding: 20px; border-radius: 8px; flex: 1;">
                     <h3>廣播系統</h3>
-                    <form action="/broadcast" method="POST"><input type="password" name="password" placeholder="密碼" required><br>
-                    <select id="guild_select" onchange="updateChannels()"><option value="">選擇伺服器</option>{guild_options}</select>
-                    <select name="channel_id" id="channel_select"><option value="">請選擇</option></select><br>
-                    <textarea name="message" placeholder="輸入訊息" required></textarea><br><button type="submit">發送</button></form>
+                    <form action="/broadcast" method="POST">
+                        <input type="password" name="password" placeholder="密碼" required><br>
+                        <select id="guild_select" onchange="updateChannels()"><option value="">選擇伺服器</option>{guild_options}</select>
+                        <select name="channel_id" id="channel_select"><option value="">請選擇</option></select><br>
+                        <textarea name="message" placeholder="輸入訊息" required></textarea><br>
+                        <button type="submit">發送</button>
+                    </form>
                 </div>
             </div>
             <script>
