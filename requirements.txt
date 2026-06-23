@@ -4,5 +4,5 @@ flask-cors
 psutil
 static-ffmpeg
 PyNaCl
-
-davey
+pymongo
+dnspython
