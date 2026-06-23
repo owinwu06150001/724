@@ -61,50 +61,49 @@ def index():
     <html>
         <body style="background: #0f172a; color: white; padding: 20px; font-family: sans-serif;">
             <h1>機器人管理後台</h1>
-            <p>{admin_msg}</p>
-            <div style="background: #1e293b; padding: 20px; border-radius: 8px;">
-                <h3>系統監控</h3>
-                <p>CPU: {bot_status['cpu']}% | RAM: {bot_status['ram']}% | 延遲: {bot_status['latency']}ms</p>
-                <table width="100%" border="1" style="border-collapse:collapse; margin-top:10px;">
-                    <tr><th>伺服器名稱</th><th>成員數</th><th>狀態</th></tr>
-                    {guild_rows}
-                </table>
-                <div id="logs" style="height: 100px; margin-top:10px; overflow-y: scroll; background: #000; padding: 10px; font-family: monospace;">{"<br>".join(bot_status['logs'])}</div>
-            </div>
+            <div id="status_msg" style="color: #4ade80;"></div>
             <div style="margin-top: 20px; display: flex; gap: 20px;">
                 <div style="background: #334155; padding: 20px; border-radius: 8px; flex: 1;">
                     <h3>管理操作</h3>
-                    <form method="POST">
-                        <input type="password" name="password" placeholder="密碼" required><br>
-                        <select name="action">
-                            <option value="clear_logs">清除日誌</option>
-                            <option value="restart">重啟機器人</option>
-                        </select>
-                        <button type="submit">執行</button>
-                    </form>
+                    <button onclick="sendAction('clear_logs')">清除日誌</button>
+                    <button onclick="sendAction('restart')">重啟機器人</button>
                 </div>
                 <div style="background: #334155; padding: 20px; border-radius: 8px; flex: 1;">
                     <h3>廣播系統</h3>
-                    <form action="/broadcast" method="POST">
-                        <input type="password" name="password" placeholder="密碼" required><br>
-                        <select id="guild_select" onchange="updateChannels()"><option value="">選擇伺服器</option>{guild_options}</select>
-                        <select name="channel_id" id="channel_select"><option value="">請選擇</option></select><br>
-                        <textarea name="message" placeholder="輸入訊息" required></textarea><br>
-                        <button type="submit">發送</button>
-                    </form>
+                    <input type="password" id="pass" placeholder="密碼"><br>
+                    <select id="guild_select" onchange="updateChannels()"><option value="">選擇伺服器</option>{guild_options}</select>
+                    <select id="channel_select"><option value="">請選擇頻道</option></select><br>
+                    <textarea id="msg" placeholder="輸入訊息"></textarea><br>
+                    <button onclick="sendBroadcast()">發送廣播</button>
                 </div>
             </div>
+
             <script>
             function updateChannels() {{
                 let gid = document.getElementById('guild_select').value;
-                if(!gid) return;
                 fetch('/get_channels/' + gid).then(r => r.json()).then(data => {{
                     document.getElementById('channel_select').innerHTML = data.map(c => `<option value="${{c.id}}">${{c.name}}</option>`).join('');
                 }});
             }}
+            
+            function sendBroadcast() {{
+                let fd = new FormData();
+                fd.append('password', document.getElementById('pass').value);
+                fd.append('message', document.getElementById('msg').value);
+                fd.append('channel_id', document.getElementById('channel_select').value);
+                fetch('/broadcast', {{method: 'POST', body: fd}}).then(r => r.text()).then(t => alert(t));
+            }}
+
+            function sendAction(act) {{
+                let fd = new FormData();
+                fd.append('password', document.getElementById('pass').value);
+                fd.append('action', act);
+                fetch('/', {{method: 'POST', body: fd}}).then(() => location.reload());
+            }}
             </script>
         </body>
     </html>
+
     """
 
 def run(): app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
