@@ -9,11 +9,8 @@ import psutil
 import static_ffmpeg
 import server
 import json
-import pymongo 
-
 
 static_ffmpeg.add_paths()
-
 server.keep_alive()
 
 def log_event(msg):
@@ -25,8 +22,9 @@ intents.voice_states = True
 intents.members = True
 intents.presences = True
 intents.guilds = True
-# 建立 Bot
+
 bot = commands.Bot(command_prefix="!", intents=intents)
+tree = bot.tree
 
 server.set_bot(bot)
 server.keep_alive()
@@ -39,26 +37,6 @@ queues = {}
 welcome_channels = {} 
 filter_configs = {}
 
-def save_data():
-    data = {
-        "_id": "bot_config",
-        "stay_channels": stay_channels,
-        "welcome_channels": welcome_channels,
-        "stats_channels": stats_channels,
-        "filter_configs": filter_configs
-    }
-    collection.replace_one({"_id": "bot_config"}, data, upsert=True)
-
-def load_data():
-    global stay_channels, welcome_channels, stats_channels, filter_configs
-    doc = collection.find_one({"_id": "bot_config"})
-    if doc:
-        stay_channels = doc.get("stay_channels", {})
-        welcome_channels = doc.get("welcome_channels", {})
-        stats_channels = doc.get("stats_channels", {})
-        filter_configs = doc.get("filter_configs", {})
-
-# ===== 不雅語言預設詞庫 =====
 COMMON_PROFANITY = [
     "幹", "靠", "屁", "垃圾", "智障", "腦癱", "死全家", "孤兒", 
     "廢物", "去死", "操你媽", "你媽死了", "尼哥", "畜生", "雜種", 
@@ -103,7 +81,6 @@ def get_help_text(bot_mention):
         "* /使用方式：顯示本手冊。"
     )
 
-# --- Class 區 ---
 class RoleButtonView(discord.ui.View):
     def __init__(self, role_id):
         super().__init__(timeout=None)
@@ -167,7 +144,6 @@ class MusicControlView(discord.ui.View):
         elif self.manager.vc.is_paused(): self.manager.vc.resume()
         await interaction.response.edit_message(embed=self.manager.get_status_embed(), view=self)
 
-# --- 輔助邏輯 ---
 async def tag_logic(channel, target, content, times):
     for i in range(times):
         if tag_targets.get(target.id) is False: break
@@ -175,25 +151,20 @@ async def tag_logic(channel, target, content, times):
         except: break
         await asyncio.sleep(0.8)
 
-# ===== 系統任務 =====
 @tasks.loop(seconds=5)
 async def process_broadcast_queue():
-    queue = server.bot_status["broadcast_queue"]
+    queue = server.bot_status.get("broadcast_queue", [])
     if queue:
-        item = queue.pop(0) # 取出訊息
+        item = queue.pop(0)
         channel = bot.get_channel(item["cid"])
         if channel:
-            try:
-                await channel.send(item["msg"])
-            except Exception as e:
-                print(f"廣播發送失敗: {e}")
-                
+            try: await channel.send(item["msg"])
+            except: pass
+
 @tasks.loop(seconds=5)
 async def check_restart():
-    # 監聽伺服器端的重啟請求 (需要在 server.py 設定中新增 "restart_requested": False)
     if hasattr(server, 'bot_status') and server.bot_status.get("restart_requested"):
-        save_state()
-        log_event("收到重啟指令，正在保存狀態並重啟...")
+        log_event("收到重啟指令...")
         await bot.close()
         os._exit(0)
 
@@ -234,7 +205,6 @@ async def update_web_stats():
     server.bot_status["latency"] = round(bot.latency * 1000)
     server.bot_status["guild_count"] = len(bot.guilds)
 
-# ===== 事件監聽 =====
 @bot.event
 async def on_message(message):
     if message.author.bot: return
@@ -270,17 +240,14 @@ async def on_member_join(member):
 
 @bot.event
 async def on_ready():
-    load_data() # 啟動時載入資料
-    
     if not update_web_stats.is_running(): update_web_stats.start()
     if not check_connection.is_running(): check_connection.start()
     if not update_member_stats.is_running(): update_member_stats.start()
-    if not process_broadcast_queue.is_running(): process_broadcast_queue.start() # 啟動廣播
-    
+    if not process_broadcast_queue.is_running(): process_broadcast_queue.start()
+    if not check_restart.is_running(): check_restart.start()
     await bot.tree.sync()
     print("機器人已啟動並連線至 Discord")
 
-# ===== 指令區 =====
 @tree.command(name="使用方式", description="顯示功能清單")
 async def show_help(interaction: discord.Interaction):
     await interaction.response.send_message(get_help_text(bot.user.mention))
@@ -298,7 +265,6 @@ async def setup_role_panel(interaction: discord.Interaction, 身分組: discord.
 @app_commands.checks.has_permissions(manage_guild=True)
 async def set_welcome_channel(interaction: discord.Interaction, 頻道: discord.TextChannel):
     welcome_channels[interaction.guild.id] = 頻道.id
-    save_state()
     await interaction.response.send_message(f"歡迎頻道已設定為：{頻道.mention}")
 
 @tree.command(name="設定過濾器", description="開啟/關閉禁言系統")
@@ -306,7 +272,6 @@ async def set_welcome_channel(interaction: discord.Interaction, 頻道: discord.
 @app_commands.checks.has_permissions(manage_guild=True)
 async def filter_set(interaction: discord.Interaction, 開啟: bool, 記錄頻道: discord.TextChannel):
     filter_configs[interaction.guild.id] = {"enabled": 開啟, "log_channel_id": 記錄頻道.id, "keywords": COMMON_PROFANITY.copy()}
-    save_state()
     await interaction.response.send_message(f"過濾系統：{'開啟' if 開啟 else '關閉'}，日誌頻道：{記錄頻道.mention}")
 
 @tree.command(name="新增過濾詞彙", description="加入新的禁止字詞")
@@ -317,7 +282,6 @@ async def add_profanity(interaction: discord.Interaction, 詞彙: str):
         filter_configs[interaction.guild.id] = {"enabled": False, "keywords": COMMON_PROFANITY.copy()}
     if 詞彙 not in filter_configs[interaction.guild.id]["keywords"]:
         filter_configs[interaction.guild.id]["keywords"].append(詞彙)
-        save_state()
         await interaction.response.send_message(f"已將「{詞彙}」加入過濾名單")
     else: await interaction.response.send_message("該詞彙已在名單中")
 
@@ -341,7 +305,6 @@ async def join_vc(interaction: discord.Interaction, 頻道: discord.VoiceChannel
     await 頻道.connect(self_deaf=True)
     stay_channels[interaction.guild.id] = 頻道.id
     stay_since[interaction.guild.id] = time.time()
-    save_state()
     await interaction.response.send_message(f"已連接至：{頻道.name}")
 
 @tree.command(name="播放", description="播放上傳的音檔")
@@ -373,7 +336,6 @@ async def stats_setup(interaction: discord.Interaction):
     c_online = await guild.create_voice_channel(f"在線成員: {online}", category=category, overwrites=overwrites)
     c_bots = await guild.create_voice_channel(f"機器人: {bots}", category=category, overwrites=overwrites)
     stats_channels[guild.id] = {"total": c_total.id, "humans": c_humans.id, "online": c_online.id, "bots": c_bots.id}
-    save_state()
     await interaction.response.send_message("統計頻道建立完成")
 
 @tree.command(name="給予身分組", description="賦予成員身分組")
@@ -401,7 +363,6 @@ async def leave_vc(interaction: discord.Interaction):
     if interaction.guild.voice_client:
         await interaction.guild.voice_client.disconnect()
         stay_channels.pop(interaction.guild.id, None)
-        save_state()
         await interaction.response.send_message("已離開語音頻道")
     else: await interaction.response.send_message("目前不在語音中")
 
