@@ -9,61 +9,54 @@ import psutil
 import static_ffmpeg
 import server
 import json
+import pymongo 
 
-# 初始化 FFMPEG
+
 static_ffmpeg.add_paths()
 
-# 啟動 Web 服務
 server.keep_alive()
 
-# 記錄日誌的函式
 def log_event(msg):
     server.add_log(msg)
 
-# ===== Intents 設定 =====
 intents = discord.Intents.default()
 intents.message_content = True
 intents.voice_states = True
 intents.members = True
 intents.presences = True
-intents.guilds = True 
-
+intents.guilds = True
 # 建立 Bot
 bot = commands.Bot(command_prefix="!", intents=intents)
-server.set_bot(bot)
-tree = bot.tree
 
-# ===== 資料儲存與持久化 =====
-SAVE_FILE = "bot_data.json"
+server.set_bot(bot)
+server.keep_alive()
+
 stay_channels = {}
 stay_since = {}
 tag_targets = {}
 stats_channels = {}
 queues = {}
 welcome_channels = {} 
-filter_configs = {} 
+filter_configs = {}
 
-def save_state():
+def save_data():
     data = {
+        "_id": "bot_config",
         "stay_channels": stay_channels,
         "welcome_channels": welcome_channels,
-        "filter_configs": filter_configs,
-        "stats_channels": stats_channels
+        "stats_channels": stats_channels,
+        "filter_configs": filter_configs
     }
-    with open(SAVE_FILE, "w") as f:
-        json.dump(data, f)
+    collection.replace_one({"_id": "bot_config"}, data, upsert=True)
 
-def load_state():
-    global stay_channels, welcome_channels, filter_configs, stats_channels
-    if os.path.exists(SAVE_FILE):
-        try:
-            with open(SAVE_FILE, "r") as f:
-                data = json.load(f)
-                stay_channels = data.get("stay_channels", {})
-                welcome_channels = data.get("welcome_channels", {})
-                filter_configs = data.get("filter_configs", {})
-                stats_channels = data.get("stats_channels", {})
-        except: pass
+def load_data():
+    global stay_channels, welcome_channels, stats_channels, filter_configs
+    doc = collection.find_one({"_id": "bot_config"})
+    if doc:
+        stay_channels = doc.get("stay_channels", {})
+        welcome_channels = doc.get("welcome_channels", {})
+        stats_channels = doc.get("stats_channels", {})
+        filter_configs = doc.get("filter_configs", {})
 
 # ===== 不雅語言預設詞庫 =====
 COMMON_PROFANITY = [
@@ -184,6 +177,18 @@ async def tag_logic(channel, target, content, times):
 
 # ===== 系統任務 =====
 @tasks.loop(seconds=5)
+async def process_broadcast_queue():
+    queue = server.bot_status["broadcast_queue"]
+    if queue:
+        item = queue.pop(0) # 取出訊息
+        channel = bot.get_channel(item["cid"])
+        if channel:
+            try:
+                await channel.send(item["msg"])
+            except Exception as e:
+                print(f"廣播發送失敗: {e}")
+                
+@tasks.loop(seconds=5)
 async def check_restart():
     # 監聽伺服器端的重啟請求 (需要在 server.py 設定中新增 "restart_requested": False)
     if hasattr(server, 'bot_status') and server.bot_status.get("restart_requested"):
@@ -265,14 +270,15 @@ async def on_member_join(member):
 
 @bot.event
 async def on_ready():
-    load_state() # 啟動時讀取存檔
+    load_data() # 啟動時載入資料
+    
     if not update_web_stats.is_running(): update_web_stats.start()
     if not check_connection.is_running(): check_connection.start()
     if not update_member_stats.is_running(): update_member_stats.start()
-    if not check_restart.is_running(): check_restart.start()
+    if not process_broadcast_queue.is_running(): process_broadcast_queue.start() # 啟動廣播
+    
     await bot.tree.sync()
-    log_event("機器人已啟動成功並恢復狀態")
-    print("機器人已啟動")
+    print("機器人已啟動並連線至 Discord")
 
 # ===== 指令區 =====
 @tree.command(name="使用方式", description="顯示功能清單")
