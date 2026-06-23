@@ -155,11 +155,20 @@ async def tag_logic(channel, target, content, times):
 async def process_broadcast_queue():
     queue = server.bot_status.get("broadcast_queue", [])
     if queue:
-        item = queue.pop(0)
+        item = queue.pop(0) # 取出任務
         channel = bot.get_channel(item["cid"])
         if channel:
-            try: await channel.send(item["msg"])
-            except: pass
+            try:
+                await channel.send(item["msg"])
+                server.add_log(f"廣播發送成功: {item['msg'][:10]}...")
+            except Exception as e:
+                server.add_log(f"廣播失敗: {e}")
+# 記得在 on_ready 中啟動它
+@bot.event
+async def on_ready():
+    # ... 其他任務 ...
+    if not process_broadcast_queue.is_running():
+        process_broadcast_queue.start()
 
 @tasks.loop(seconds=5)
 async def check_restart():
