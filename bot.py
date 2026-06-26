@@ -98,16 +98,15 @@ async def tag_logic(channel, target, content, times):
 @tasks.loop(minutes=1)
 async def update_status():
     global status_toggle
+    print("DEBUG: 正在嘗試更新機器人狀態...") # 增加這一行偵錯
     
     if status_toggle:
-        # 計算運行時間
         uptime = datetime.datetime.now() - start_time
         days = uptime.days
         hours, remainder = divmod(uptime.seconds, 3600)
         minutes, _ = divmod(remainder, 60)
         activity = discord.Activity(type=discord.ActivityType.watching, name=f"已運行: {days}天 {hours}時 {minutes}分")
     else:
-        # 顯示伺服器數量
         guild_count = len(bot.guilds)
         activity = discord.Activity(type=discord.ActivityType.playing, name=f"服務於 {guild_count} 個伺服器")
     
@@ -235,8 +234,9 @@ async def on_ready():
     if not update_member_stats.is_running(): update_member_stats.start()
     if not process_broadcast_queue.is_running(): process_broadcast_queue.start()
     if not check_restart.is_running(): check_restart.start()
+    update_status.start()
     await bot.tree.sync()
-    print("機器人已啟動並連線至 Discord")
+    print(f"機器人已登入: {bot.user}")
 
 # ---------------------------------------------------------------------------
 # 以下為指令區塊：將 加入 與 離開 置於最上方
