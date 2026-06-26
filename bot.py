@@ -35,6 +35,7 @@ stay_since = {}
 tag_targets = {}
 stats_channels = {}
 welcome_channels = {} 
+voice_join_times = {}
 
 AUDIT_LOG_ACTIONS_CN = {
     "guild_update": "更新伺服器", "channel_create": "建立頻道", "channel_update": "更新頻道",
@@ -166,6 +167,44 @@ async def on_member_join(member):
             if member.display_avatar:
                 embed.set_thumbnail(url=member.display_avatar.url)
             await channel.send(embed=embed)
+
+@bot.event
+async def on_voice_state_update(member, before, after):
+    channel_id = voice_log_channels.get(member.guild.id)
+    if not channel_id:
+        return
+    channel = bot.get_channel(channel_id)
+    if not channel:
+        return
+
+    # 偵測加入頻道
+    if before.channel is None and after.channel is not None:
+        voice_join_times[member.id] = datetime.datetime.now()
+        embed = discord.Embed(title="加入語音頻道", color=0x00ff00)
+        embed.set_author(name=member.display_name, icon_url=member.display_avatar.url)
+        embed.add_field(name="玩家", value=member.mention, inline=False)
+        embed.add_field(name="加入頻道", value=after.channel.name, inline=False)
+        embed.timestamp = datetime.datetime.now()
+        await channel.send(embed=embed)
+
+    # 偵測離開頻道
+    elif before.channel is not None and after.channel is None:
+        join_time = voice_join_times.pop(member.id, None)
+        duration_text = "無法計算"
+        
+        if join_time:
+            duration = datetime.datetime.now() - join_time
+            total_seconds = int(duration.total_seconds())
+            minutes, seconds = divmod(total_seconds, 60)
+            duration_text = f"{minutes} 分 {seconds} 秒"
+
+        embed = discord.Embed(title="離開語音頻道", color=0xff0000)
+        embed.set_author(name=member.display_name, icon_url=member.display_avatar.url)
+        embed.add_field(name="玩家", value=member.mention, inline=False)
+        embed.add_field(name="離開頻道", value=before.channel.name, inline=False)
+        embed.add_field(name="停留時間", value=duration_text, inline=False)
+        embed.timestamp = datetime.datetime.now()
+        await channel.send(embed=embed)
 
 @bot.event
 async def on_ready():
