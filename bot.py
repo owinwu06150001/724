@@ -37,6 +37,7 @@ stats_channels = {}
 welcome_channels = {} 
 voice_log_channels = {} 
 start_time = datetime.datetime.now()
+status_toggle = True 
 
 AUDIT_LOG_ACTIONS_CN = {
     "guild_update": "更新伺服器", "channel_create": "建立頻道", "channel_update": "更新頻道",
@@ -93,6 +94,26 @@ async def tag_logic(channel, target, content, times):
         try: await channel.send(f"{target.mention} {content}")
         except: break
         await asyncio.sleep(0.8)
+
+@tasks.loop(minutes=1)
+async def update_status():
+    global status_toggle
+    
+    if status_toggle:
+        # 計算運行時間
+        uptime = datetime.datetime.now() - start_time
+        days = uptime.days
+        hours, remainder = divmod(uptime.seconds, 3600)
+        minutes, _ = divmod(remainder, 60)
+        activity = discord.Activity(type=discord.ActivityType.watching, name=f"已運行: {days}天 {hours}時 {minutes}分")
+    else:
+        # 顯示伺服器數量
+        guild_count = len(bot.guilds)
+        activity = discord.Activity(type=discord.ActivityType.playing, name=f"服務於 {guild_count} 個伺服器")
+    
+    await bot.change_presence(activity=activity)
+    status_toggle = not status_toggle
+    
 
 @tasks.loop(seconds=5)
 async def process_broadcast_queue():
