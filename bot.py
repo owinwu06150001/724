@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands, tasks
 from discord import app_commands
+from typing import Optional
 import os
 import time
 import asyncio
@@ -48,8 +49,8 @@ def get_help_text(bot_mention):
         f"## {bot_mention} 使用手冊\n"
         "本機器人為 24/7 語音掛機設計，具備 30 秒自動重連機制。\n\n"
         "### 核心語音\n"
-        "* /離開：退出頻道並停止掛機。\n"
         "* /加入 [頻道]：進入語音頻道掛機。\n"
+        "* /離開：退出頻道並停止掛機。\n"
         "* /狀態：查看掛機時間與延遲。\n\n"
         "### 伺服器統計與管理\n"
         "* /設定統計頻道：建立自動更新人數的統計頻道。\n"
@@ -176,14 +177,9 @@ async def on_ready():
     await bot.tree.sync()
     print("機器人已啟動並連線至 Discord")
 
-
-@tree.command(name="離開", description="退出語音")
-async def leave_vc(interaction: discord.Interaction):
-    if interaction.guild.voice_client:
-        await interaction.guild.voice_client.disconnect()
-        stay_channels.pop(interaction.guild.id, None)
-        await interaction.response.send_message("已離開語音頻道")
-    else: await interaction.response.send_message("目前不在語音中")
+# ---------------------------------------------------------------------------
+# 以下為指令區塊：將 加入 與 離開 置於最上方
+# ---------------------------------------------------------------------------
 
 @tree.command(name="加入", description="進入語音頻道掛機")
 async def join_vc(interaction: discord.Interaction, 頻道: discord.VoiceChannel = None):
@@ -193,6 +189,24 @@ async def join_vc(interaction: discord.Interaction, 頻道: discord.VoiceChannel
     stay_channels[interaction.guild.id] = 頻道.id
     stay_since[interaction.guild.id] = time.time()
     await interaction.response.send_message(f"已連接至：{頻道.name}")
+
+@tree.command(name="離開", description="退出語音")
+async def leave_vc(interaction: discord.Interaction):
+    if interaction.guild.voice_client:
+        await interaction.guild.voice_client.disconnect()
+        stay_channels.pop(interaction.guild.id, None)
+        await interaction.response.send_message("已離開語音頻道")
+    else: await interaction.response.send_message("目前不在語音中")
+
+# ---------------------------------------------------------------------------
+# 其他指令
+# ---------------------------------------------------------------------------
+
+@tree.command(name="狀態", description="查看掛機時間與延遲")
+async def status_info(interaction: discord.Interaction):
+    if interaction.guild_id not in stay_channels: return await interaction.response.send_message("未在掛機狀態", ephemeral=True)
+    uptime = int(time.time() - stay_since.get(interaction.guild_id, time.time()))
+    await interaction.response.send_message(f"掛機時間: {uptime} 秒 | 延遲: {round(bot.latency * 1000)} ms")
 
 @tree.command(name="使用方式", description="顯示功能清單")
 async def show_help(interaction: discord.Interaction):
@@ -214,8 +228,10 @@ async def set_welcome_channel(interaction: discord.Interaction, 頻道: discord.
     await interaction.response.send_message(f"歡迎頻道已設定為：{頻道.mention}")
 
 @tree.command(name="開始標註", description="對成員執行轟炸")
-async def start_bomb(interaction: discord.Interaction, 成員: discord.Member, 內容: str, 次數: int):
+async def start_bomb(interaction: discord.Interaction, 成員: discord.Member, 次數: int, 內容: Optional[str] = "戳一下"):
     if 次數 <= 0: return await interaction.response.send_message("次數必須大於0", ephemeral=True)
+    if 次數 > 50: return await interaction.response.send_message("次數過多，請限制在 50 次以內", ephemeral=True)
+    
     tag_targets[成員.id] = True
     await interaction.response.send_message(f"開始轟炸 {成員.mention}")
     await tag_logic(interaction.channel, 成員, 內容, 次數)
@@ -290,12 +306,6 @@ async def role_rem(interaction: discord.Interaction, 成員: discord.Member, 身
 @tree.command(name="系統狀態", description="硬體監控")
 async def sys_info(interaction: discord.Interaction):
     await interaction.response.send_message(f"CPU: {psutil.cpu_percent()}% | RAM: {psutil.virtual_memory().percent}%")
-
-@tree.command(name="狀態", description="查看掛機時間與延遲")
-async def status_info(interaction: discord.Interaction):
-    if interaction.guild_id not in stay_channels: return await interaction.response.send_message("未在掛機狀態", ephemeral=True)
-    uptime = int(time.time() - stay_since.get(interaction.guild_id, time.time()))
-    await interaction.response.send_message(f"掛機時間: {uptime} 秒 | 延遲: {round(bot.latency * 1000)} ms")
 
 @tree.command(name="查看審核日誌", description="查看操作紀錄")
 @app_commands.describe(筆數="顯示數量(1-20)")
