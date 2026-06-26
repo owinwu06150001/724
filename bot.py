@@ -238,6 +238,7 @@ async def on_voice_state_update(member, before, after):
 
 @bot.event
 async def on_ready():
+    server.set_bot(bot)
     if not update_web_stats.is_running(): update_web_stats.start()
     if not check_connection.is_running(): check_connection.start()
     if not update_member_stats.is_running(): update_member_stats.start()
