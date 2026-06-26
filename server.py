@@ -242,7 +242,7 @@ def index():
                 </div>
                 
                 <div class="sub-card">
-                    <h3>整合廣播系統</h3>
+                    <h3>廣播系統</h3>
                     <div style="display: flex; gap: 10px;">
                         <select id="g_sel" onchange="upd()" style="flex: 1;">
                             <option value="">選擇目標伺服器</option>
