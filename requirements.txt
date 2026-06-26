@@ -1,4 +1,4 @@
-discord.py
+discord.py[voice]
 flask
 flask-cors
 psutil
@@ -6,3 +6,4 @@ static-ffmpeg
 PyNaCl
 pymongo
 dnspython
+davey
