@@ -68,7 +68,7 @@ def index():
     # 事先處理日誌換行，避免在 f-string 中引發引號解析衝突
     log_content = "<br>".join(bot_status['logs']) if bot_status['logs'] else "暫無日誌紀錄..."
     
-    return f"""
+    
     
 
 def keep_alive(): Thread(target=lambda: app.run(host='0.0.0.0', port=8080), daemon=True).start()
