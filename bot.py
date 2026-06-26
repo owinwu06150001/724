@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands, tasks
+from discord.ext import tasks
 from discord import app_commands
 from typing import Optional
 import os
@@ -98,7 +99,7 @@ async def tag_logic(channel, target, content, times):
 @tasks.loop(minutes=1)
 async def update_status():
     global status_toggle
-    print("DEBUG: 正在嘗試更新機器人狀態...") # 增加這一行偵錯
+    print("正在嘗試更新機器人狀態...") # 增加這一行偵錯
     
     if status_toggle:
         uptime = datetime.datetime.now() - start_time
@@ -114,18 +115,26 @@ async def update_status():
     status_toggle = not status_toggle
     
 
-@tasks.loop(seconds=5)
-async def process_broadcast_queue():
-    queue = server.bot_status.get("broadcast_queue", [])
-    if queue:
-        item = queue.pop(0)
-        channel = bot.get_channel(item["cid"])
+@tasks.loop(seconds=3)
+async def check_broadcast():
+    # 檢查 server.py 裡面的 broadcast_queue 有沒有資料
+    if len(server.broadcast_queue) > 0:
+        # 取出佇列中的第一筆訊息
+        item = server.broadcast_queue.pop(0)
+        channel_id = item["cid"]
+        msg = item["msg"]
+        
+        # 讓機器人尋找該頻道並發送訊息
+        channel = bot.get_channel(channel_id)
         if channel:
             try:
-                await channel.send(item["msg"])
-                server.add_log(f"廣播發送成功: {item['msg'][:10]}...")
+                await channel.send(msg)
+                # 發送成功，寫入一筆日誌到網頁後台
+                server.add_log(f"成功廣播訊息至頻道: {channel.name}")
             except Exception as e:
-                server.add_log(f"廣播失敗: {e}")
+                server.add_log(f"廣播失敗 (可能是缺乏發言權限): {e}")
+        else:
+            server.add_log(f"廣播失敗 (找不到頻道，請確認機器人有加入該伺服器)")
 
 @tasks.loop(seconds=5)
 async def check_restart():
@@ -234,6 +243,8 @@ async def on_ready():
     if not update_member_stats.is_running(): update_member_stats.start()
     if not process_broadcast_queue.is_running(): process_broadcast_queue.start()
     if not check_restart.is_running(): check_restart.start()
+    if not check_broadcast.is_running():
+    check_broadcast.start()
     update_status.start()
     await bot.tree.sync()
     print(f"機器人已登入: {bot.user}")
