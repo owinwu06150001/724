@@ -1,6 +1,6 @@
+from flask import Flask, request, jsonify, render_template
 import os
 import psutil
-from flask import Flask, request, jsonify
 from threading import Thread
 from datetime import datetime
 
@@ -43,7 +43,6 @@ def broadcast():
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    # 處理管理動作 (重啟/清空日誌)
     if request.method == 'POST':
         data = request.json
         if data.get('password') == ADMIN_PASS:
@@ -54,7 +53,6 @@ def index():
 
     guild_list = _bot.guilds if _bot and _bot.is_ready() else []
     
-    # 建立美化後的伺服器列表表格列
     guild_rows = "".join([
         f'<tr style="border-bottom: 1px solid #2d3748;">'
         f'<td style="padding: 12px; color: #e2e8f0;">{g.name}</td>'
@@ -65,10 +63,14 @@ def index():
     
     guild_options = "".join([f'<option value="{g.id}">{g.name}</option>' for g in guild_list])
     
-    # 事先處理日誌換行，避免在 f-string 中引發引號解析衝突
     log_content = "<br>".join(bot_status['logs']) if bot_status['logs'] else "暫無日誌紀錄..."
     
-    
-    
+    return render_template('index.html', 
+                           guild_rows=guild_rows, 
+                           guild_options=guild_options, 
+                           log_content=log_content,
+                           bot_status=bot_status)
 
-def keep_alive(): Thread(target=lambda: app.run(host='0.0.0.0', port=8080), daemon=True).start()
+def keep_alive():
+    port = int(os.environ.get("PORT", 8080))
+    Thread(target=lambda: app.run(host='0.0.0.0', port=port), daemon=True).start()
