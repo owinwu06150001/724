@@ -117,24 +117,17 @@ async def update_status():
 
 @tasks.loop(seconds=3)
 async def check_broadcast():
-    # 檢查 server.py 裡面的 broadcast_queue 有沒有資料
     if len(server.broadcast_queue) > 0:
-        # 取出佇列中的第一筆訊息
         item = server.broadcast_queue.pop(0)
-        channel_id = item["cid"]
-        msg = item["msg"]
-        
-        # 讓機器人尋找該頻道並發送訊息
-        channel = bot.get_channel(channel_id)
+        channel = bot.get_channel(item["cid"])
         if channel:
             try:
-                await channel.send(msg)
-                # 發送成功，寫入一筆日誌到網頁後台
-                server.add_log(f"成功廣播訊息至頻道: {channel.name}")
+                await channel.send(item["msg"])
+                server.add_log(f"已發送至 #{channel.name}: {item['msg']}")
             except Exception as e:
-                server.add_log(f"廣播失敗 (可能是缺乏發言權限): {e}")
+                server.add_log(f"發送失敗: {e}")
         else:
-            server.add_log(f"廣播失敗 (找不到頻道，請確認機器人有加入該伺服器)")
+            server.add_log("找不到頻道，無法發送")
 
 @tasks.loop(seconds=5)
 async def check_restart():
