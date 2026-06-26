@@ -202,11 +202,20 @@ async def leave_vc(interaction: discord.Interaction):
 # 其他指令
 # ---------------------------------------------------------------------------
 
-@tree.command(name="狀態", description="查看掛機時間與延遲")
-async def status_info(interaction: discord.Interaction):
-    if interaction.guild_id not in stay_channels: return await interaction.response.send_message("未在掛機狀態", ephemeral=True)
-    uptime = int(time.time() - stay_since.get(interaction.guild_id, time.time()))
-    await interaction.response.send_message(f"掛機時間: {uptime} 秒 | 延遲: {round(bot.latency * 1000)} ms")
+@tree.command(name="系統狀態", description="硬體監控與執行時間")
+async def sys_info(interaction: discord.Interaction):
+    # 計算運行時間
+    uptime = datetime.datetime.now() - start_time
+    days = uptime.days
+    hours, remainder = divmod(uptime.seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    uptime_str = f"{days}天 {hours}小時 {minutes}分 {seconds}秒"
+    
+    # 顯示狀態
+    await interaction.response.send_message(
+        f"CPU: {psutil.cpu_percent()}% | RAM: {psutil.virtual_memory().percent}%\n"
+        f"已運行: {uptime_str}"
+    )
 
 @tree.command(name="使用方式", description="顯示功能清單")
 async def show_help(interaction: discord.Interaction):
