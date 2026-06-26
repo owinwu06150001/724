@@ -244,7 +244,7 @@ async def on_ready():
     if not process_broadcast_queue.is_running(): process_broadcast_queue.start()
     if not check_restart.is_running(): check_restart.start()
     if not check_broadcast.is_running():
-    check_broadcast.start()
+        check_broadcast.start()
     update_status.start()
     await bot.tree.sync()
     print(f"機器人已登入: {bot.user}")
