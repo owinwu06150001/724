@@ -33,22 +33,7 @@ stay_channels = {}
 stay_since = {}
 tag_targets = {}
 stats_channels = {}
-queues = {}
 welcome_channels = {} 
-filter_configs = {}
-
-COMMON_PROFANITY = [
-    "幹", "靠", "屁", "垃圾", "智障", "腦癱", "死全家", "孤兒", 
-    "廢物", "去死", "操你媽", "你媽死了", "尼哥", "畜生", "雜種", 
-    "低能兒", "白癡", "腦殘", "傻逼", "機掰", "雞掰", "賤人", "賤貨",
-    "操", "肏", "幹你娘", "靠北", "靠腰", "三小", "幹林娘", "機歪",
-    "支那", "下流", "無恥", "欠幹", "狗娘養的", "尼瑪"
-]
-
-FFMPEG_OPTIONS = {
-    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-    'options': '-vn',
-}
 
 AUDIT_LOG_ACTIONS_CN = {
     "guild_update": "更新伺服器", "channel_create": "建立頻道", "channel_update": "更新頻道",
@@ -61,23 +46,24 @@ AUDIT_LOG_ACTIONS_CN = {
 def get_help_text(bot_mention):
     return (
         f"## {bot_mention} 使用手冊\n"
-        "本機器人為 24/7 語音掛機設計 具備30秒自動重連機制。\n\n"
-        "### 指令列表\n"
-        "* /加入 [頻道]：進入語音頻道掛機。\n"
-        "* /設定統計頻道：建立自動更新人數的統計頻道。\n"
-        "* /播放 [檔案]：上傳音檔（mp3, ogg, m4a）播放。\n"
-        "* /系統狀態：查看硬體資訊。\n"
-        "* /停止播放：中斷目前的音樂。\n"
+        "本機器人為 24/7 語音掛機設計，具備 30 秒自動重連機制。\n\n"
+        "### 核心語音\n"
         "* /離開：退出頻道並停止掛機。\n"
-        "* /開始標註 [成員] [內容] [次數]：執行標註轟炸。\n"
-        "* /停止標註：結束轟炸。\n"
-        "* /設定過濾器：開啟/關閉不雅語言禁言系統。\n"
-        "* /新增過濾詞彙：手動加入關鍵字。\n"
-        "* /狀態：查看掛機時間與延遲。\n"
-        "* /移除身分組 / /給予身分組：管理成員權限。\n"
-        "* /建立身分組面板 [身分組] [圖片網址]：發送按鈕面板。\n"
+        "* /加入 [頻道]：進入語音頻道掛機。\n"
+        "* /狀態：查看掛機時間與延遲。\n\n"
+        "### 伺服器統計與管理\n"
+        "* /設定統計頻道：建立自動更新人數的統計頻道。\n"
+        "* /刪除統計頻道：一鍵刪除人數統計頻道與分類。\n"
         "* /設定歡迎頻道 [頻道]：設定歡迎訊息發送位置。\n"
-        "* /查看審核日誌：查看操作紀錄。\n"
+        "* /查看審核日誌：查看操作紀錄。\n\n"
+        "### 身分組管理\n"
+        "* /給予身分組 [成員] [身分組]：賦予成員身分組。\n"
+        "* /移除身分組 [成員] [身分組]：移除成員的身分組。\n"
+        "* /建立身分組面板 [身分組] [圖片網址]：發送按鈕面板。\n\n"
+        "### 工具與娛樂\n"
+        "* /開始標註 [成員] [內容] [次數]：執行標註轟炸。\n"
+        "* /停止標註 [成員]：結束轟炸。\n"
+        "* /系統狀態：查看硬體資訊。\n"
         "* /使用方式：顯示本手冊。"
     )
 
@@ -98,52 +84,6 @@ class RoleButtonView(discord.ui.View):
             await interaction.user.remove_roles(role)
             await interaction.response.send_message(f"已移除 {role.name} 身分組", ephemeral=True)
 
-class MusicManager:
-    def __init__(self, guild_id):
-        self.guild_id = guild_id
-        self.queue = []
-        self.history = []
-        self.current = None
-        self.volume = 0.5
-        self.mode = "none"
-        self.vc = None
-    def get_status_embed(self):
-        status = "播放中" if self.vc and self.vc.is_playing() else "已暫停"
-        loop_map = {"none": "不循環", "single": "單曲循環", "all": "歌單循環"}
-        embed = discord.Embed(title="音樂控制面板", color=0xaa96da)
-        embed.add_field(name="當前歌曲", value=self.current[1] if self.current else "無", inline=False)
-        embed.add_field(name="狀態", value=status, inline=True)
-        embed.add_field(name="循環模式", value=loop_map.get(self.mode), inline=True)
-        embed.add_field(name="當前音量", value=f"{int(self.volume*100)}%", inline=True)
-        embed.set_footer(text=f"待播清單剩餘: {len(self.queue)} 首歌曲")
-        return embed
-    def play_next(self, error=None):
-        if not self.vc or not self.vc.is_connected(): return
-        if self.current:
-            if self.mode == "single": self.queue.insert(0, self.current)
-            elif self.mode == "all": self.queue.append(self.current)
-            else: self.history.append(self.current)
-        if not self.queue:
-            self.current = None
-            return
-        self.current = self.queue.pop(0)
-        source = discord.PCMVolumeTransformer(
-            discord.FFmpegPCMAudio(self.current[0], **FFMPEG_OPTIONS),
-            volume=self.volume
-        )
-        self.vc.play(source, after=lambda e: bot.loop.call_soon_threadsafe(self.play_next, e))
-
-class MusicControlView(discord.ui.View):
-    def __init__(self, manager):
-        super().__init__(timeout=None)
-        self.manager = manager
-    @discord.ui.button(label="暫停/繼續", style=discord.ButtonStyle.primary, row=0)
-    async def pause_resume(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not self.manager.vc: return
-        if self.manager.vc.is_playing(): self.manager.vc.pause()
-        elif self.manager.vc.is_paused(): self.manager.vc.resume()
-        await interaction.response.edit_message(embed=self.manager.get_status_embed(), view=self)
-
 async def tag_logic(channel, target, content, times):
     for i in range(times):
         if tag_targets.get(target.id) is False: break
@@ -155,7 +95,7 @@ async def tag_logic(channel, target, content, times):
 async def process_broadcast_queue():
     queue = server.bot_status.get("broadcast_queue", [])
     if queue:
-        item = queue.pop(0) # 取出任務
+        item = queue.pop(0)
         channel = bot.get_channel(item["cid"])
         if channel:
             try:
@@ -163,12 +103,6 @@ async def process_broadcast_queue():
                 server.add_log(f"廣播發送成功: {item['msg'][:10]}...")
             except Exception as e:
                 server.add_log(f"廣播失敗: {e}")
-# 記得在 on_ready 中啟動它
-@bot.event
-async def on_ready():
-    # ... 其他任務 ...
-    if not process_broadcast_queue.is_running():
-        process_broadcast_queue.start()
 
 @tasks.loop(seconds=5)
 async def check_restart():
@@ -219,23 +153,6 @@ async def on_message(message):
     if message.author.bot: return
     if bot.user.mentioned_in(message) and message.mention_everyone is False:
         await message.channel.send(get_help_text(bot.user.mention))
-    config = filter_configs.get(message.guild.id, {"enabled": False, "keywords": COMMON_PROFANITY})
-    if config.get("enabled"):
-        if any(word in message.content for word in config.get("keywords")):
-            try:
-                msg_text = message.content
-                user = message.author
-                await message.delete()
-                await user.timeout(datetime.timedelta(seconds=60), reason="使用不雅詞彙")
-                log_cid = config.get("log_channel_id")
-                if log_cid:
-                    log_ch = bot.get_channel(log_cid)
-                    if log_ch:
-                        log_embed = discord.Embed(title="違規紀錄", color=0xff0000)
-                        log_embed.add_field(name="用戶", value=user.mention)
-                        log_embed.add_field(name="違規內容", value=msg_text)
-                        await log_ch.send(embed=log_embed)
-            except: pass
     await bot.process_commands(message)
 
 @bot.event
@@ -245,6 +162,8 @@ async def on_member_join(member):
         channel = bot.get_channel(channel_id)
         if channel:
             embed = discord.Embed(title="歡迎訊息", description=f"你好 歡迎加入 {member.guild.name}！\n\n{member.mention}\n\n你是本伺服器的第 {member.guild.member_count} 位成員", color=0xaa96da)
+            if member.display_avatar:
+                embed.set_thumbnail(url=member.display_avatar.url)
             await channel.send(embed=embed)
 
 @bot.event
@@ -256,6 +175,24 @@ async def on_ready():
     if not check_restart.is_running(): check_restart.start()
     await bot.tree.sync()
     print("機器人已啟動並連線至 Discord")
+
+
+@tree.command(name="離開", description="退出語音")
+async def leave_vc(interaction: discord.Interaction):
+    if interaction.guild.voice_client:
+        await interaction.guild.voice_client.disconnect()
+        stay_channels.pop(interaction.guild.id, None)
+        await interaction.response.send_message("已離開語音頻道")
+    else: await interaction.response.send_message("目前不在語音中")
+
+@tree.command(name="加入", description="進入語音頻道掛機")
+async def join_vc(interaction: discord.Interaction, 頻道: discord.VoiceChannel = None):
+    頻道 = 頻道 or (interaction.user.voice.channel if interaction.user.voice else None)
+    if not 頻道: return await interaction.response.send_message("請先進入頻道或指定頻道", ephemeral=True)
+    await 頻道.connect(self_deaf=True)
+    stay_channels[interaction.guild.id] = 頻道.id
+    stay_since[interaction.guild.id] = time.time()
+    await interaction.response.send_message(f"已連接至：{頻道.name}")
 
 @tree.command(name="使用方式", description="顯示功能清單")
 async def show_help(interaction: discord.Interaction):
@@ -276,24 +213,6 @@ async def set_welcome_channel(interaction: discord.Interaction, 頻道: discord.
     welcome_channels[interaction.guild.id] = 頻道.id
     await interaction.response.send_message(f"歡迎頻道已設定為：{頻道.mention}")
 
-@tree.command(name="設定過濾器", description="開啟/關閉禁言系統")
-@app_commands.describe(開啟="是否啟動", 記錄頻道="違規訊息日誌頻道")
-@app_commands.checks.has_permissions(manage_guild=True)
-async def filter_set(interaction: discord.Interaction, 開啟: bool, 記錄頻道: discord.TextChannel):
-    filter_configs[interaction.guild.id] = {"enabled": 開啟, "log_channel_id": 記錄頻道.id, "keywords": COMMON_PROFANITY.copy()}
-    await interaction.response.send_message(f"過濾系統：{'開啟' if 開啟 else '關閉'}，日誌頻道：{記錄頻道.mention}")
-
-@tree.command(name="新增過濾詞彙", description="加入新的禁止字詞")
-@app_commands.describe(詞彙="要禁用的字詞")
-@app_commands.checks.has_permissions(manage_guild=True)
-async def add_profanity(interaction: discord.Interaction, 詞彙: str):
-    if interaction.guild.id not in filter_configs:
-        filter_configs[interaction.guild.id] = {"enabled": False, "keywords": COMMON_PROFANITY.copy()}
-    if 詞彙 not in filter_configs[interaction.guild.id]["keywords"]:
-        filter_configs[interaction.guild.id]["keywords"].append(詞彙)
-        await interaction.response.send_message(f"已將「{詞彙}」加入過濾名單")
-    else: await interaction.response.send_message("該詞彙已在名單中")
-
 @tree.command(name="開始標註", description="對成員執行轟炸")
 async def start_bomb(interaction: discord.Interaction, 成員: discord.Member, 內容: str, 次數: int):
     if 次數 <= 0: return await interaction.response.send_message("次數必須大於0", ephemeral=True)
@@ -306,31 +225,6 @@ async def start_bomb(interaction: discord.Interaction, 成員: discord.Member, �
 async def stop_bomb(interaction: discord.Interaction, 成員: discord.Member):
     tag_targets[成員.id] = False
     await interaction.response.send_message(f"已停止對 {成員.mention} 的動作")
-
-@tree.command(name="加入", description="進入語音頻道掛機")
-async def join_vc(interaction: discord.Interaction, 頻道: discord.VoiceChannel = None):
-    頻道 = 頻道 or (interaction.user.voice.channel if interaction.user.voice else None)
-    if not 頻道: return await interaction.response.send_message("請先進入頻道或指定頻道", ephemeral=True)
-    await 頻道.connect(self_deaf=True)
-    stay_channels[interaction.guild.id] = 頻道.id
-    stay_since[interaction.guild.id] = time.time()
-    await interaction.response.send_message(f"已連接至：{頻道.name}")
-
-@tree.command(name="播放", description="播放上傳的音檔")
-async def play_audio(interaction: discord.Interaction, 檔案: discord.Attachment):
-    if not 檔案.filename.endswith(('.mp3', '.ogg', '.m4a')):
-        return await interaction.response.send_message("格式不支援", ephemeral=True)
-    await interaction.response.defer(thinking=True)
-    gid = interaction.guild_id
-    if gid not in queues: queues[gid] = MusicManager(gid)
-    mgr = queues[gid]
-    if not interaction.guild.voice_client:
-        if not interaction.user.voice: return await interaction.followup.send("請先進入語音")
-        mgr.vc = await interaction.user.voice.channel.connect(self_deaf=True)
-    else: mgr.vc = interaction.guild.voice_client
-    mgr.queue.append((檔案.url, 檔案.filename))
-    if not mgr.vc.is_playing() and not mgr.vc.is_paused(): mgr.play_next()
-    await interaction.followup.send(embed=mgr.get_status_embed(), view=MusicControlView(mgr))
 
 @tree.command(name="設定統計頻道", description="建立人數統計頻道")
 @app_commands.checks.has_permissions(manage_channels=True)
@@ -346,6 +240,36 @@ async def stats_setup(interaction: discord.Interaction):
     c_bots = await guild.create_voice_channel(f"機器人: {bots}", category=category, overwrites=overwrites)
     stats_channels[guild.id] = {"total": c_total.id, "humans": c_humans.id, "online": c_online.id, "bots": c_bots.id}
     await interaction.response.send_message("統計頻道建立完成")
+
+@tree.command(name="刪除統計頻道", description="一鍵刪除人數統計頻道與分類")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def stats_delete(interaction: discord.Interaction):
+    guild = interaction.guild
+    if guild.id not in stats_channels:
+        return await interaction.response.send_message("未偵測到本伺服器的統計頻道紀錄", ephemeral=True)
+    
+    await interaction.response.defer(thinking=True)
+    stats = stats_channels[guild.id]
+    category_to_delete = None
+    
+    for key, cid in stats.items():
+        ch = guild.get_channel(cid)
+        if ch:
+            if not category_to_delete and ch.category:
+                category_to_delete = ch.category
+            try:
+                await ch.delete()
+            except:
+                pass
+                
+    if category_to_delete:
+        try:
+            await category_to_delete.delete()
+        except:
+            pass
+            
+    stats_channels.pop(guild.id, None)
+    await interaction.followup.send("統計頻道及分類已全數刪除完成")
 
 @tree.command(name="給予身分組", description="賦予成員身分組")
 @app_commands.checks.has_permissions(manage_roles=True)
@@ -366,14 +290,6 @@ async def role_rem(interaction: discord.Interaction, 成員: discord.Member, 身
 @tree.command(name="系統狀態", description="硬體監控")
 async def sys_info(interaction: discord.Interaction):
     await interaction.response.send_message(f"CPU: {psutil.cpu_percent()}% | RAM: {psutil.virtual_memory().percent}%")
-
-@tree.command(name="離開", description="退出語音")
-async def leave_vc(interaction: discord.Interaction):
-    if interaction.guild.voice_client:
-        await interaction.guild.voice_client.disconnect()
-        stay_channels.pop(interaction.guild.id, None)
-        await interaction.response.send_message("已離開語音頻道")
-    else: await interaction.response.send_message("目前不在語音中")
 
 @tree.command(name="狀態", description="查看掛機時間與延遲")
 async def status_info(interaction: discord.Interaction):
