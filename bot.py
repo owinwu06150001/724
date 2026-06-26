@@ -312,10 +312,6 @@ async def role_rem(interaction: discord.Interaction, 成員: discord.Member, 身
         await interaction.response.send_message(f"已從 {成員.display_name} 移除 {身分組.name}")
     except Exception as e: await interaction.response.send_message(f"失敗: {e}")
 
-@tree.command(name="系統狀態", description="硬體監控")
-async def sys_info(interaction: discord.Interaction):
-    await interaction.response.send_message(f"CPU: {psutil.cpu_percent()}% | RAM: {psutil.virtual_memory().percent}%")
-
 @tree.command(name="查看審核日誌", description="查看操作紀錄")
 @app_commands.describe(筆數="顯示數量(1-20)")
 @app_commands.checks.has_permissions(view_audit_log=True)
