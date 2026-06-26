@@ -242,7 +242,6 @@ async def on_ready():
     if not update_web_stats.is_running(): update_web_stats.start()
     if not check_connection.is_running(): check_connection.start()
     if not update_member_stats.is_running(): update_member_stats.start()
-    if not process_broadcast_queue.is_running(): process_broadcast_queue.start()
     if not check_restart.is_running(): check_restart.start()
     if not check_broadcast.is_running():
         check_broadcast.start()
