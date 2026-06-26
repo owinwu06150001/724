@@ -35,7 +35,8 @@ stay_since = {}
 tag_targets = {}
 stats_channels = {}
 welcome_channels = {} 
-voice_join_times = {}
+voice_log_channels = {} 
+start_time = datetime.datetime.now()
 
 AUDIT_LOG_ACTIONS_CN = {
     "guild_update": "更新伺服器", "channel_create": "建立頻道", "channel_update": "更新頻道",
