@@ -1,6 +1,7 @@
+import os
+import psutil
 from flask import Flask, request, jsonify
 from threading import Thread
-import os, psutil
 from datetime import datetime
 
 app = Flask(__name__)
@@ -18,6 +19,14 @@ def add_log(message):
     timestamp = datetime.now().strftime("%H:%M:%S")
     bot_status["logs"].insert(0, f"[{timestamp}] {message}")
     if len(bot_status["logs"]) > 20: bot_status["logs"].pop()
+
+@app.route('/status', methods=['GET'])
+def get_status():
+    if _bot and _bot.is_ready():
+        bot_status["latency"] = round(_bot.latency * 1000)
+        bot_status["cpu"] = psutil.cpu_percent()
+        bot_status["ram"] = psutil.virtual_memory().percent
+    return jsonify(bot_status)
 
 @app.route('/get_channels/<int:guild_id>')
 def get_channels(guild_id):
@@ -208,10 +217,10 @@ def index():
             <div class="main-card">
                 <h3>系統監控</h3>
                 <div class="stats-bar">
-                    <div>CPU 使用率: <span>{bot_status['cpu']}%</span></div>
-                    <div>RAM 使用率: <span>{bot_status['ram']}%</span></div>
-                    <div>網路延遲: <span>{bot_status['latency']}ms</span></div>
-                </div>
+                     <div>CPU 使用率: <span id="s-cpu">{bot_status['cpu']}%</span></div>
+                     <div>RAM 使用率: <span id="s-ram">{bot_status['ram']}%</span></div>
+                     <div>網路延遲: <span id="s-lat">{bot_status['latency']}ms</span></div>
+            </div>
                 
                 <table>
                     <thead>
@@ -273,8 +282,23 @@ def index():
                         channelSelect.innerHTML = '<option value="">無可用文字頻道</option>';
                     }} else {{
                         channelSelect.innerHTML = d.map(c => `<option value="${{c.id}}"># ${{c.name}}</option>`).join('');
-                    }}
+                    }}ss
                 }});
+                setInterval(() => {
+    fetch('/status')
+    .then(r => r.json())
+    .then(d => {
+        // 更新顯示數值
+        document.getElementById('s-cpu').innerText = d.cpu + '%';
+        document.getElementById('s-ram').innerText = d.ram + '%';
+        document.getElementById('s-lat').innerText = d.latency + 'ms';
+        
+        // 更新日誌顯示
+        const logsContainer = document.getElementById('logs-container');
+        logsContainer.innerHTML = d.logs.join('<br>');
+        logsContainer.scrollTop = logsContainer.scrollHeight;
+    });
+}, 3000);
             }}
             
             function send() {{
