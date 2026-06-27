@@ -57,10 +57,10 @@ def index():
     guild_rows_html = []
     for g in guild_list:
         if g.voice_client:
-            status_text = "語音連線中"
+            status_text = "正在掛機中"
             status_color = "#10b981"
         else:
-            status_text = "文字待命中"
+            status_text = "正在睡覺中"
             status_color = "#94a3b8"
 
         row = (
