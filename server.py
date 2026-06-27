@@ -53,15 +53,15 @@ def index():
 
     guild_list = _bot.guilds if _bot and _bot.is_ready() else []
     
+    # --- 這裡開始是更新後的伺服器列表生成邏輯 ---
     guild_rows_html = []
     for g in guild_list:
-        # 判斷機器人是否正在該伺服器的語音頻道中
         if g.voice_client:
             status_text = "語音連線中"
-            status_color = "#10b981" # 綠色
+            status_color = "#10b981"
         else:
             status_text = "文字待命中"
-            status_color = "#94a3b8" # 灰色
+            status_color = "#94a3b8"
 
         row = (
             f'<tr style="border-bottom: 1px solid #2d3748;">'
@@ -73,7 +73,7 @@ def index():
         guild_rows_html.append(row)
         
     guild_rows = "".join(guild_rows_html)
-    ])
+    # --- 更新邏輯結束 ---
     
     guild_options = "".join([f'<option value="{g.id}">{g.name}</option>' for g in guild_list])
     
