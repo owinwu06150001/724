@@ -49,16 +49,39 @@ AUDIT_LOG_ACTIONS_CN = {
     "message_delete": "刪除訊息", "message_bulk_delete": "批量刪除訊息",
 }
 
+# 完整的翻譯字典，請確保結尾的 } 沒有被漏掉
 LOG_TRANSLATIONS = {
     "Connecting to voice...": "正在連線至語音頻道...",
-    "Starting voice handshake...": "開始語音連線...",
-    "Voice handshake complete.": "語音連線完成。",
-    "Voice connection complete.": "語音連線成功。",
-    "Disconnected from voice... Reconnecting in": "已從語音頻道斷線... 準備重新連線",
-    "The voice handshake is being terminated": "語音連線程序已被強制終止",
-    "WebSocket closed with": "WebSocket 連線已關閉 代碼:",
-    "Shard ID None WebSocket closed with 1006": "連線異常中斷 錯誤代碼 1006 網路不穩定",
-    "We have successfully connected to the gateway.": "已成功連線至 Discord "
+    "Starting voice handshake...": "開始語音連線握手程序...",
+    "Voice handshake complete.": "語音連線握手完成。",
+    "Voice connection complete.": "語音連線建立成功。",
+    "Disconnected from voice... Reconnecting in": "已從語音頻道斷線... 準備重新連線，倒數",
+    "The voice handshake is being terminated": "語音連線握手程序已被強制終止",
+    "WebSocket closed with": "WebSocket 連線已關閉，代碼:",
+    "Shard ID None WebSocket closed with 1006": "連線異常中斷 (錯誤代碼 1006，通常為網路不穩定)",
+    "We have successfully connected to the gateway.": "已成功連線至 Discord 網關。"
+}
+
+class WebDashboardHandler(logging.Handler):
+    def emit(self, record):
+        log_msg = self.format(record)
+        
+        # 進行字串替換翻譯
+        for eng, cht in LOG_TRANSLATIONS.items():
+            if eng in log_msg:
+                log_msg = log_msg.replace(eng, cht)
+                
+        # 傳送至網頁端
+        server.add_log(log_msg)
+
+# 設定 Discord 函式庫的日誌記錄器
+logger = logging.getLogger('discord')
+logger.setLevel(logging.INFO)
+
+# 建立並加入自訂處理器
+web_handler = WebDashboardHandler()
+web_handler.setFormatter(logging.Formatter('[系統] %(message)s'))
+logger.addHandler(web_handler)
 
 def get_help_text(bot_mention):
     return (
@@ -101,30 +124,7 @@ class RoleButtonView(discord.ui.View):
             await interaction.user.remove_roles(role)
             await interaction.response.send_message(f"已移除 {role.name} 身分組", ephemeral=True)
 
-class WebDashboardHandler(logging.Handler):
-    def emit(self, record):
-        # 格式化原始日誌訊息
-        log_msg = self.format(record)
-        
-        # 進行簡單的字串替換翻譯
-        for eng, cht in LOG_TRANSLATIONS.items():
-            if eng in log_msg:
-                log_msg = log_msg.replace(eng, cht)
-                
-        # 將翻譯後 (或未匹配到翻譯的原始訊息) 傳送至網頁
-        server.add_log(log_msg)
 
-
-# 設定 Discord 函式庫的日誌記錄器
-logger = logging.getLogger('discord')
-logger.setLevel(logging.INFO) # 設定擷取 INFO 等級以上的日誌
-
-# 建立我們自訂的處理器，並設定輸出的格式
-web_handler = WebDashboardHandler()
-web_handler.setFormatter(logging.Formatter('[系統] %(message)s'))
-
-# 將處理器加入到 logger 中
-logger.addHandler(web_handler)
 
 async def tag_logic(channel, target, content, times):
     for i in range(times):
