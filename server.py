@@ -53,12 +53,26 @@ def index():
 
     guild_list = _bot.guilds if _bot and _bot.is_ready() else []
     
-    guild_rows = "".join([
-        f'<tr style="border-bottom: 1px solid #2d3748;">'
-        f'<td style="padding: 12px; color: #e2e8f0;">{g.name}</td>'
-        f'<td style="padding: 12px; color: #94a3b8;">{g.member_count}</td>'
-        f'<td style="padding: 12px; color: #10b981; font-weight: 600;">連線中</td>'
-        f'</tr>' for g in guild_list
+    guild_rows_html = []
+    for g in guild_list:
+        # 判斷機器人是否正在該伺服器的語音頻道中
+        if g.voice_client:
+            status_text = "語音連線中"
+            status_color = "#10b981" # 綠色
+        else:
+            status_text = "文字待命中"
+            status_color = "#94a3b8" # 灰色
+
+        row = (
+            f'<tr style="border-bottom: 1px solid #2d3748;">'
+            f'<td style="padding: 12px; color: #e2e8f0;">{g.name}</td>'
+            f'<td style="padding: 12px; color: #94a3b8;">{g.member_count}</td>'
+            f'<td style="padding: 12px; color: {status_color}; font-weight: 600;">{status_text}</td>'
+            f'</tr>'
+        )
+        guild_rows_html.append(row)
+        
+    guild_rows = "".join(guild_rows_html)
     ])
     
     guild_options = "".join([f'<option value="{g.id}">{g.name}</option>' for g in guild_list])
