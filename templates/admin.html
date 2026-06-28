@@ -247,33 +247,53 @@
     </script>
 
 
-    function onTextGuildChange(guildId) {
-    // ⚠️ 請確保此 ID 與您網頁中「文字頻道」下拉選單的 id 屬性一致
+   <select id="text-guild-select" onchange="onTextGuildChange(this.value)">
+    <option value="">-- 請選擇伺服器 --</option>
+    {% for g in guilds %}
+        <option value="{{ g.id }}">{{ g.name }}</option>
+    {% endfor %}
+</select>
+
+<select id="voice-guild-select" onchange="onVoiceGuildChange(this.value)">
+    <option value="">-- 請選擇伺服器 --</option>
+    {% for g in guilds %}
+        <option value="{{ g.id }}">{{ g.name }}</option>
+    {% endfor %}
+</select>
+2. 更新最底部的 JavaScrip 超強容錯控制代碼
+請將您放在 admin.html 最底部的 <script> 區塊，替換為以下帶有高容錯與偵錯記錄的版本：
+
+JavaScript
+// ==========================================
+// 1. 遠端文字廣播區塊邏輯
+// ==========================================
+function onTextGuildChange(guildId) {
     const channelSelect = document.getElementById('text-channel-select'); 
-    
     if (!guildId) {
         channelSelect.innerHTML = '<option value="">請先選擇伺服器</option>';
         return;
     }
+    console.log("正在請求文字頻道，伺服器 ID:", guildId); // 開啟主控台可檢查 ID 有無失真
 
-    // 發送請求給後端文字頻道路由
     fetch(`/get_channels/${guildId}`)
         .then(response => {
-            if (!response.ok) throw new Error('網路回應錯誤');
+            if (!response.ok) throw new Error('HTTP 錯誤: ' + response.status);
             return response.json();
         })
         .then(channels => {
-            channelSelect.innerHTML = ''; // 清空舊選項
-
-            if (channels.length === 0) {
+            channelSelect.innerHTML = '';
+            
+            // 自動相容直接回傳陣列或包在物件內的情況
+            const list = Array.isArray(channels) ? channels : (channels.channels || []);
+            
+            if (list.length === 0) {
                 channelSelect.innerHTML = '<option value="">此伺服器沒有可用的文字頻道</option>';
                 return;
             }
 
-            // 遍歷後端回傳的乾淨陣列
-            channels.forEach(ch => {
+            list.forEach(ch => {
                 const option = document.createElement('option');
-                option.value = ch.id; // 這裡拿到的是不失真的字串 ID
+                option.value = String(ch.id); // 強制轉字串防變形
                 option.textContent = ch.name;
                 channelSelect.appendChild(option);
             });
@@ -287,35 +307,33 @@
 // ==========================================
 // 2. 遠端語音連線控制區塊邏輯
 // ==========================================
-
-// 當「語音控制」的伺服器選單切換時觸發
 function onVoiceGuildChange(guildId) {
-    // ⚠️ 請確保此 ID 與您網頁中「語音頻道」下拉選單的 id 屬性一致
     const voiceSelect = document.getElementById('voice-channel-select'); 
-    
     if (!guildId) {
         voiceSelect.innerHTML = '<option value="">請先選擇伺服器</option>';
         return;
     }
+    console.log("正在請求語音頻道，伺服器 ID:", guildId);
 
-    // 發送請求給後端語音頻道路由
     fetch(`/get_voice_channels/${guildId}`)
         .then(response => {
-            if (!response.ok) throw new Error('網路回應錯誤');
+            if (!response.ok) throw new Error('HTTP 錯誤: ' + response.status);
             return response.json();
         })
         .then(channels => {
-            voiceSelect.innerHTML = ''; // 清空舊選項
-
-            if (channels.length === 0) {
+            voiceSelect.innerHTML = '';
+            
+            // 自動相容直接回傳陣列或包在物件內的情況
+            const list = Array.isArray(channels) ? channels : (channels.channels || []);
+            
+            if (list.length === 0) {
                 voiceSelect.innerHTML = '<option value="">此伺服器沒有可用的語音頻道</option>';
                 return;
             }
 
-            // 遍歷後端回傳的乾淨陣列
-            channels.forEach(ch => {
+            list.forEach(ch => {
                 const option = document.createElement('option');
-                option.value = ch.id; // 這裡拿到的是不失真的字串 ID
+                option.value = String(ch.id); // 強制轉字串防變形
                 option.textContent = ch.name;
                 voiceSelect.appendChild(option);
             });
@@ -324,7 +342,6 @@ function onVoiceGuildChange(guildId) {
             console.error('解析語音頻道失敗:', error);
             voiceSelect.innerHTML = '<option value="">底層資料傳輸失敗，請重新切換伺服器嘗試</option>';
         });
-
 }
 
 
