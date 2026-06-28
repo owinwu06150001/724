@@ -10,11 +10,20 @@ app = Flask(__name__)
 # 宣告全域變數，留空等待 bot.py 透過 set_bot() 注入
 bot = None
 
+# 防止 Web 伺服器重複啟動的旗標
+_flask_started = False
+
 # 模擬內部日誌儲存空間
 log_store = ["系統初始化成功，等待機器人連線..."]
 
+# ==========================================
+# 補齊 bot.py 背景任務需要的核心變數
+# ==========================================
+bot_status = {"cpu": 0, "ram": 0}  # 供 bot.py 第 238 行更新硬體數據
+broadcast_queue = []               # 供 bot.py 第 157 行讀取廣播排隊
+
 def add_log(message):
-    """改名為 add_log 以符合 bot.py 第 75 行的呼叫"""
+    """供 bot.py 記錄日誌使用"""
     log_store.append(message)
     if len(log_store) > 100:  # 限制快取日誌數量
         log_store.pop(0)
@@ -35,13 +44,17 @@ def set_bot(target_bot):
         add_log(f"[系統] 機器人已成功連線。登入身分: {bot.user.name} (ID: {bot.user.id})")
 
 def run_flask():
-    # 讀取 Render 環境變數中的 PORT，若不存在則預設使用 5000
-    # 這能有效解決 Address already in use 的衝突問題
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 
 def keep_alive():
-    """在背景獨立執行緒啟動 Flask 網頁伺服器"""
+    """在背景獨立執行緒啟動 Flask 網頁伺服器（內含重複啟動防護）"""
+    global _flask_started
+    if _flask_started:
+        print("[系統] Web 伺服器已經在執行中，跳過重複啟動程序。")
+        return
+    
+    _flask_started = True
     flask_thread = threading.Thread(target=run_flask, daemon=True)
     flask_thread.start()
     print("[系統] Web 伺服器已在背景執行緒啟動 (keep_alive)。")
@@ -59,12 +72,14 @@ def index_page():
 @app.route('/status')
 def get_status():
     if bot is None:
-        return jsonify({"bot_online": False, "bot_name": "準備中...", "guilds_count": 0})
+        return jsonify({"bot_online": False, "bot_name": "準備中...", "guilds_count": 0, "cpu": 0, "ram": 0})
         
     status_data = {
         "bot_online": bot.is_ready(),
         "bot_name": bot.user.name if bot.user else "未連線",
-        "guilds_count": len(bot.guilds) if bot.is_ready() else 0
+        "guilds_count": len(bot.guilds) if bot.is_ready() else 0,
+        "cpu": bot_status.get("cpu", 0),
+        "ram": bot_status.get("ram", 0)
     }
     return jsonify(status_data)
 
@@ -162,7 +177,7 @@ def send_broadcast():
 async def handle_join_voice(guild_id: int, channel_id: int):
     guild = bot.get_guild(guild_id)
     if not guild:
-        return False, f"遠端控制失敗: 找不到目標伺服务器 (ID: {guild_id})"
+        return False, f"遠端控制失敗: 找不到目標伺服器 (ID: {guild_id})"
     
     channel = guild.get_channel(channel_id)
     if not channel or not isinstance(channel, discord.VoiceChannel):
