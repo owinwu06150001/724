@@ -1,3 +1,4 @@
+import os
 import asyncio
 import threading
 from flask import Flask, render_template, jsonify, request
@@ -6,13 +7,14 @@ import discord
 # 1. 設置 Flask 應用程式
 app = Flask(__name__)
 
-# 宣告全域變數，留空等待 bot.py 透過 set_bot() 注入實例
+# 宣告全域變數，留空等待 bot.py 透過 set_bot() 注入
 bot = None
 
 # 模擬內部日誌儲存空間
 log_store = ["系統初始化成功，等待機器人連線..."]
 
-def append_log(message):
+def add_log(message):
+    """改名為 add_log 以符合 bot.py 第 75 行的呼叫"""
     log_store.append(message)
     if len(log_store) > 100:  # 限制快取日誌數量
         log_store.pop(0)
@@ -30,11 +32,13 @@ def set_bot(target_bot):
     # 動態綁定機器人上線事件
     @bot.event
     async def on_ready():
-        append_log(f"[系統] 機器人已成功連線。登入身分: {bot.user.name} (ID: {bot.user.id})")
+        add_log(f"[系統] 機器人已成功連線。登入身分: {bot.user.name} (ID: {bot.user.id})")
 
 def run_flask():
-    # 監聽 0.0.0.0:5000 供 Render 環境讀取
-    app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
+    # 讀取 Render 環境變數中的 PORT，若不存在則預設使用 5000
+    # 這能有效解決 Address already in use 的衝突問題
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 
 def keep_alive():
     """在背景獨立執行緒啟動 Flask 網頁伺服器"""
@@ -44,7 +48,7 @@ def keep_alive():
 
 
 # ==========================================
-# Flask 網頁路由區塊 (內含 Bot 安全檢查)
+# Flask 網頁路由區塊
 # ==========================================
 
 @app.route('/')
@@ -54,7 +58,6 @@ def index_page():
 
 @app.route('/status')
 def get_status():
-    # 預防 bot 還沒注入時前端請求崩潰
     if bot is None:
         return jsonify({"bot_online": False, "bot_name": "準備中...", "guilds_count": 0})
         
@@ -120,11 +123,11 @@ def join_voice():
             handle_join_voice(int(guild_id), int(channel_id)), bot.loop
         )
         success, msg = future.result(timeout=10)
-        append_log(msg)
+        add_log(msg)
         return jsonify({"success": success, "message": msg})
     except Exception as e:
         err_msg = f"遠端控制失敗: 執行非同步調度異常 ({str(e)})"
-        append_log(err_msg)
+        add_log(err_msg)
         return jsonify({"success": False, "message": err_msg})
 
 @app.route('/send_broadcast', methods=['POST'])
@@ -145,11 +148,11 @@ def send_broadcast():
             handle_send_message(int(guild_id), int(channel_id), message_text), bot.loop
         )
         success, msg = future.result(timeout=10)
-        append_log(msg)
+        add_log(msg)
         return jsonify({"success": success, "message": msg})
     except Exception as e:
         err_msg = f"文字廣播失敗: 執行非同步調度異常 ({str(e)})"
-        append_log(err_msg)
+        add_log(err_msg)
         return jsonify({"success": False, "message": err_msg})
 
 # ==========================================
@@ -159,7 +162,7 @@ def send_broadcast():
 async def handle_join_voice(guild_id: int, channel_id: int):
     guild = bot.get_guild(guild_id)
     if not guild:
-        return False, f"遠端控制失敗: 找不到目標伺服器 (ID: {guild_id})"
+        return False, f"遠端控制失敗: 找不到目標伺服务器 (ID: {guild_id})"
     
     channel = guild.get_channel(channel_id)
     if not channel or not isinstance(channel, discord.VoiceChannel):
