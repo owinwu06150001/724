@@ -76,19 +76,6 @@
             </div>
         </div>
 
-
-        setInterval(() => {
-            fetch('/status')
-            .then(r => r.json())
-            .then(d => {
-                document.getElementById('s-cpu').innerText = d.cpu + '%';
-                document.getElementById('s-ram').innerText = d.ram + '%';
-                document.getElementById('s-lat').innerText = d.latency + 'ms';
-                const logsContainer = document.getElementById('logs-container');
-                logsContainer.innerHTML = d.logs.join('<br>');
-                logsContainer.scrollTop = logsContainer.scrollHeight;
-            });
-        }, 3000);
             
 
 </body>
