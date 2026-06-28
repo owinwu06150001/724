@@ -75,53 +75,7 @@
                 {{ log_content|safe }}
             </div>
         </div>
-        
-        <div class="grid-layout">
-            <div class="sub-card">
-                <h3>系統管理</h3>
-                <input type="password" id="admin_pass" placeholder="請輸入管理員密碼">
-                <div class="flex-buttons">
-                    <button onclick="act('clear_logs')" class="btn-danger" style="flex: 1;">清除日誌</button>
-                    <button onclick="act('restart')" style="flex: 1; background: #64748b;">重啟機器人</button>
-                </div>
-            </div>
-            
-            <div class="sub-card">
-                <h3>廣播系統</h3>
-                <div style="display: flex; gap: 10px;">
-                    <select id="g_sel" onchange="upd()" style="flex: 1;">
-                        <option value="">選擇目標伺服器</option>
-                        {{ guild_options|safe }}
-                    </select>
-                    <select id="c_sel" style="flex: 1;">
-                        <option value="">選擇文字頻道</option>
-                    </select>
-                </div>
-                <textarea id="msg" placeholder="請輸入欲發送的訊息內容..."></textarea>
-                <button onclick="send()" style="width: 100%;">發送訊息到指定頻道</button>
-            </div>
-        </div>
-    </div>
 
-    {% raw %}
-    <script>
-        function upd() {
-            const guildId = document.getElementById('g_sel').value;
-            const channelSelect = document.getElementById('c_sel');
-            if (!guildId) {
-                channelSelect.innerHTML = '<option value="">選擇文字頻道</option>';
-                return;
-            }
-            fetch('/get_channels/' + guildId)
-            .then(r => r.json())
-            .then(d => {
-                if (d.length === 0) {
-                    channelSelect.innerHTML = '<option value="">無可用文字頻道</option>';
-                } else {
-                    channelSelect.innerHTML = d.map(c => `<option value="${c.id}"># ${c.name}</option>`).join('');
-                }
-            });
-        }
 
         setInterval(() => {
             fetch('/status')
@@ -136,46 +90,7 @@
             });
         }, 3000);
             
-        function send() {
-            const pwd = document.getElementById('admin_pass').value;
-            const msgContent = document.getElementById('msg').value;
-            const channelId = document.getElementById('c_sel').value;
-            if (!pwd) { alert("請先輸入管理員密碼"); return; }
-            if (!channelId) { alert("請選擇目標頻道"); return; }
-            if (!msgContent.trim()) { alert("請輸入訊息內容"); return; }
-            fetch('/broadcast', {
-                method: 'POST',
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({
-                    password: pwd,
-                    message: msgContent,
-                    channel_id: channelId
-                })
-            })
-            .then(r => r.json())
-            .then(d => {
-                alert(d.msg);
-                if (d.status === "success") { document.getElementById('msg').value = ""; }
-            });
-        }
-            
-        function act(a) {
-            const pwd = document.getElementById('admin_pass').value;
-            if (!pwd) { alert("請先輸入管理員密碼"); return; }
-            fetch('/', {
-                method: 'POST',
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({
-                    password: pwd,
-                    action: a
-                })
-            })
-            .then(r => r.json())
-            .then(d => {
-                if (d.status === 'success') { location.reload(); }
-                else { alert(d.msg); }
-            });
-        }
+      
     </script>
     {% endraw %}
 </body>
