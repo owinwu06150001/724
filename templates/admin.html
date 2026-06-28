@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>機器人管理後台</title>
+    <style>
+        /* 全域樣式設定 */
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #0f172a; color: #e2e8f0; padding: 20px; line-height: 1.6; }
+        .container { max-width: 800px; margin: 0 auto; }
+        
+        /* 頁首導覽 */
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid #1e293b; padding-bottom: 15px; }
+        h1 { color: #f8fafc; font-size: 24px; }
+        .nav-link { color: #38bdf8; text-decoration: none; font-weight: 600; padding: 8px 16px; border: 1px solid #38bdf8; border-radius: 6px; transition: all 0.3s; }
+        .nav-link:hover { background-color: #38bdf8; color: #0f172a; }
+
+        /* 卡片區塊 */
+        .card { background-color: #1e293b; border-radius: 12px; padding: 24px; margin-bottom: 24px; border: 1px solid #334155; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .card-title { font-size: 18px; color: #f1f5f9; margin-bottom: 20px; font-weight: 600; border-left: 4px solid #38bdf8; padding-left: 10px; }
+
+        /* 表單控制項 */
+        .form-group { margin-bottom: 16px; }
+        label { display: block; margin-bottom: 8px; color: #94a3b8; font-size: 14px; }
+        input[type="password"], select, textarea {
+            width: 100%; background-color: #0f172a; border: 1px solid #334155; border-radius: 6px; padding: 10px 14px; color: #f8fafc; font-size: 14px; outline: none; transition: border-color 0.3s;
+        }
+        input:focus, select:focus, textarea:focus { border-color: #38bdf8; }
+        textarea { resize: vertical; min-height: 100px; }
+
+        /* 按鈕樣式 */
+        .btn { display: inline-block; width: 100%; padding: 12px; background-color: #38bdf8; color: #0f172a; border: none; border-radius: 6px; font-weight: 600; font-size: 15px; cursor: pointer; transition: background-color 0.3s; }
+        .btn:hover { background-color: #0ea5e9; }
+        .btn-danger { background-color: #ef4444; color: #ffffff; }
+        .btn-danger:hover { background-color: #dc2626; }
+        .btn-secondary { background-color: #475569; color: #ffffff; }
+        .btn-secondary:hover { background-color: #334155; }
+
+        /* 排版網格 */
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>機器人遠端管理後台</h1>
+            <a href="/" class="nav-link">返回狀態面板</a>
+        </header>
+
+        <div class="card">
+            <div class="card-title">安全驗證</div>
+            <div class="form-group">
+                <label for="admin_password">後台管理員密碼</label>
+                <input type="password" id="admin_password" placeholder="請先在此輸入通訊密碼，下方操作將共用此密碼">
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">遠端文字廣播</div>
+            <div class="form-group">
+                <label for="broadcast_guild">選擇目標伺服器</label>
+                <select id="broadcast_guild" onchange="loadTextChannels(this.value)">
+                    <option value="">-- 請選擇伺服器 --</option>
+                    {{ guild_options | safe }}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="broadcast_channel">選擇發送文字頻道</label>
+                <select id="broadcast_channel">
+                    <option value="">-- 請先在上欄選擇伺服器 --</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="broadcast_message">廣播訊息內容</label>
+                <textarea id="broadcast_message" placeholder="請輸入欲推播的文字訊息..."></textarea>
+            </div>
+            <button class="btn" onclick="sendBroadcast()">發送訊息廣播任務</button>
+        </div>
+
+        <div class="card">
+            <div class="card-title">遠端語音連線控制</div>
+            <div class="form-group">
+                <label for="voice_guild">選擇目標伺服器</label>
+                <select id="voice_guild" onchange="loadVoiceChannels(this.value)">
+                    <option value="">-- 請選擇伺服器 --</option>
+                    {{ guild_options | safe }}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="voice_channel">選擇加入語音頻道</label>
+                <select id="voice_channel">
+                    <option value="">-- 請先在上欄選擇伺服器 --</option>
+                </select>
+            </div>
+            <button class="btn" onclick="joinVoice()">調動機器人加入該語音頻道</button>
+        </div>
+
+        <div class="card">
+            <div class="card-title">核心維護指令</div>
+            <div class="btn-grid">
+                <button class="btn btn-secondary" onclick="systemAction('clear_logs')">清空儀表板日誌</button>
+                <button class="btn btn-danger" onclick="systemAction('restart')">強制重啟機器人</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 非同步調取並渲染指定伺服器的文字頻道清單
+        async function loadTextChannels(guildId) {
+            const channelSelect = document.getElementById('broadcast_channel');
+            channelSelect.innerHTML = '<option value="">正在載入頻道清單...</option>';
+            
+            if (!guildId) {
+                channelSelect.innerHTML = '<option value="">-- 請先在上欄選擇伺服器 --</option>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/get_channels/${guildId}`);
+                const channels = await response.json();
+                
+                channelSelect.innerHTML = '';
+                if (channels.length === 0) {
+                    channelSelect.innerHTML = '<option value="">該伺服器未偵測到可用文字頻道</option>';
+                    return;
+                }
+                
+                channels.forEach(ch => {
+                    const opt = document.createElement('option');
+                    opt.value = ch.id;
+                    opt.textContent = ch.name;
+                    channelSelect.appendChild(opt);
+                });
+            } catch (err) {
+                channelSelect.innerHTML = '<option value="">底層資料傳輸失敗，請重新切換伺服器嘗試</option>';
+            }
+        }
+
+        // 非同步調取並渲染指定伺服器的語音頻道清單
+        async function loadVoiceChannels(guildId) {
+            const voiceSelect = document.getElementById('voice_channel');
+            voiceSelect.innerHTML = '<option value="">正在載入語音頻道...</option>';
+            
+            if (!guildId) {
+                voiceSelect.innerHTML = '<option value="">-- 請先在上欄選擇伺服器 --</option>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/get_voice_channels/${guildId}`);
+                const channels = await response.json();
+                
+                voiceSelect.innerHTML = '';
+                if (channels.length === 0) {
+                    voiceSelect.innerHTML = '<option value="">該伺服器未偵測到可用語音頻道</option>';
+                    return;
+                }
+                
+                channels.forEach(ch => {
+                    const opt = document.createElement('option');
+                    opt.value = ch.id;
+                    opt.textContent = ch.name;
+                    voiceSelect.appendChild(opt);
+                });
+            } catch (err) {
+                voiceSelect.innerHTML = '<option value="">底層資料傳輸失敗，請重新切換伺服器嘗試</option>';
+            }
+        }
+
+        // 執行發送文字廣播
+        async function sendBroadcast() {
+            const password = document.getElementById('admin_password').value;
+            const channelId = document.getElementById('broadcast_channel').value;
+            const message = document.getElementById('broadcast_message').value;
+
+            if (!password) return alert('操作經拒絕：必須填寫管理員密碼');
+            if (!channelId) return alert('操作經拒絕：請選擇具體的目標頻道');
+            if (!message.trim()) return alert('操作經拒絕：發送內容不可為空');
+
+            try {
+                const response = await fetch('/broadcast', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password, channel_id: channelId, message })
+                });
+                const result = await response.json();
+                alert(result.msg);
+                if (result.status === 'success') {
+                    document.getElementById('broadcast_message').value = '';
+                }
+            } catch (err) {
+                alert('伺服器無回應，請確認部署核心是否運作中');
+            }
+        }
+
+        // 執行遠端調度加入語音頻道
+        async function joinVoice() {
+            const password = document.getElementById('admin_password').value;
+            const guildId = document.getElementById('voice_guild').value;
+            const channelId = document.getElementById('voice_channel').value;
+
+            if (!password) return alert('操作經拒絕：必須填寫管理員密碼');
+            if (!guildId) return alert('操作經拒絕：請選擇目標伺服器');
+            if (!channelId) return alert('操作經拒絕：請選擇要加入的語音頻道');
+
+            try {
+                const response = await fetch('/join_voice', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password, guild_id: guildId, channel_id: channelId })
+                });
+                const result = await response.json();
+                alert(result.msg);
+            } catch (err) {
+                alert('伺服器無回應，請確認部署核心是否運作中');
+            }
+        }
+
+        // 核心運作維護命令提交（清空日誌 / 系統重啟）
+        async function systemAction(actionType) {
+            const password = document.getElementById('admin_password').value;
+            if (!password) return alert('操作經拒絕：必須填寫管理員密碼');
+            
+            const confirmMsg = actionType === 'restart' ? '安全警告：重啟指令將強制使機器人離線並重新載入，確定執行？' : '確認是否清空網頁控制台上的現存日誌？';
+            if (!confirm(confirmMsg)) return;
+
+            try {
+                const response = await fetch('/admin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password, action: actionType })
+                });
+                const result = await response.json();
+                if (result.status === 'success') {
+                    alert('後台指令發送成功，核心正在處理該程序');
+                } else {
+                    alert(result.msg || '安全校驗失敗，密碼輸入有誤');
+                }
+            } catch (err) {
+                alert('伺服器連線中斷');
+            }
+        }
+    </script>
+</body>
+</html>
