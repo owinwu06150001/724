@@ -17,9 +17,10 @@ bot_status = {"cpu": 0, "ram": 0}
 broadcast_queue = []               
 voice_queue = []                   
 
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
-GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
-GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+# 使用 .strip() 確保清除環境變數中不小心夾帶的換行符 (\n) 或空白
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123").strip()
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
 
 def add_log(message):
     log_store.append(message)
@@ -31,6 +32,9 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get("authenticated") or not session.get("password_verified"):
+            # 如果是前端 AJAX 的 API 請求，改回傳 JSON 錯誤而非 HTML 導向，防止前端解析崩潰
+            if request.path.startswith('/api/') or request.path.startswith('/get_') or request.path.startswith('/join_') or request.path.startswith('/leave_') or request.path.startswith('/send_'):
+                return jsonify({"success": False, "message": "認證已過期或未登入，請重新整理網頁。"}), 401
             return redirect(url_for("login_page", next=request.url))
         return f(*args, **kwargs)
     return decorated_function
@@ -117,16 +121,10 @@ def login_google_callback():
         ).json()
         
         session["authenticated"] = True
+        session["password_verified"] = True  # 直接賦予完整權限
         session["user_email"] = user_info_res.get("email")
         add_log(f"[安全] 使用者 {session['user_email']} 透過 Google 登入成功。")
         
-        if not session.get("password_verified"):
-            return '''
-            <script>
-                alert("Google 驗證成功！請接續輸入管理員密碼以解鎖頁面。");
-                window.location.href = "/login";
-            </script>
-            '''
         return redirect(url_for("admin_page"))
     except Exception as e:
         return f"Google 驗證流程出錯: {str(e)}", 500
