@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discord Bot 高級管理控制台</title>
+    <title>控制台</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         ::-webkit-scrollbar { width: 6px; }
@@ -48,29 +48,29 @@
             
             <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-xl space-y-4">
                 <div class="border-l-4 border-blue-500 pl-3">
-                    <h2 class="text-lg font-bold text-white tracking-wide">遠端文字廣播</h2>
+                    <h2 class="text-lg font-bold text-white tracking-wide">廣播</h2>
                 </div>
                 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1.5">選擇目標伺服器</label>
+                    <diV>
+                        <label class="block text-xs font-medium text-slate-400 mb-1.5">選擇伺服器</label>
                         <select id="broadcast-guild" onchange="loadChannels('text')" class="w-full bg-[#0f172a] border border-slate-600 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition">
-                            <option value="">-- 請選擇伺服器 --</option>
+                            <option value="">-- 選擇伺服器 --</option>
                             {% for g in guilds %}
                             <option value="{{ g.id }}">{{ g.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1.5">選擇發送文字頻道</label>
+                        <label class="block text-xs font-medium text-slate-400 mb-1.5">選擇發送頻道</label>
                         <select id="broadcast-channel" class="w-full bg-[#0f172a] border border-slate-600 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition">
-                            <option value="">-- 請先選擇伺服器 --</option>
+                            <option value="">-- 選擇伺服器 --</option>
                         </select>
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-medium text-slate-400 mb-1.5">廣播訊息內容</label>
+                    <label class="block text-xs font-medium text-slate-400 mb-1.5">訊息內容</label>
                     <textarea id="broadcast-msg" rows="3" placeholder="請輸入欲推播的文字訊息..." class="w-full bg-[#0f172a] border border-slate-600 rounded-lg p-3 text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition placeholder-slate-500 resize-none"></textarea>
                 </div>
 
@@ -81,14 +81,14 @@
 
             <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-xl space-y-4">
                 <div class="border-l-4 border-cyan-500 pl-3">
-                    <h2 class="text-lg font-bold text-white tracking-wide">遠端語音連線控制</h2>
+                    <h2 class="text-lg font-bold text-white tracking-wide">遠端語音連線</h2>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1.5">選擇目標伺服器</label>
+                        <label class="block text-xs font-medium text-slate-400 mb-1.5">選擇伺服器</label>
                         <select id="voice-guild" onchange="loadChannels('voice')" class="w-full bg-[#0f172a] border border-slate-600 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500 transition">
-                            <option value="">-- 請選擇伺服器 --</option>
+                            <option value="">-- 選擇伺服器 --</option>
                             {% for g in guilds %}
                             <option value="{{ g.id }}">{{ g.name }}</option>
                             {% endfor %}
@@ -97,7 +97,7 @@
                     <div>
                         <label class="block text-xs font-medium text-slate-400 mb-1.5">選擇加入語音頻道</label>
                         <select id="voice-channel" class="w-full bg-[#0f172a] border border-slate-600 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500 transition">
-                            <option value="">-- 請先選擇伺服器 --</option>
+                            <option value="">-- 選擇伺服器 --</option>
                         </select>
                     </div>
                 </div>
@@ -116,13 +116,11 @@
     </main>
 
     <script>
-        // 動態頻道載入功能
         function loadChannels(type) {
             const guildSelect = document.getElementById(`${type}-guild`);
             const channelSelect = document.getElementById(`${type}-channel`);
             const guildId = guildSelect.value;
 
-            // 如果使用者選回預設提示，則直接清空頻道列表，不向後端發送請求
             if (!guildId) {
                 channelSelect.innerHTML = '<option value="">-- 請先選擇伺服器 --</option>';
                 return;
@@ -132,8 +130,15 @@
             const apiUrl = type === 'text' ? `/get_channels/${guildId}` : `/get_voice_channels/${guildId}`;
 
             fetch(apiUrl)
-                .then(res => {
-                    if (!res.ok) throw new Error("HTTP 狀態異常");
+                .then(async res => {
+                    if (!res.ok) {
+                        try {
+                            const errData = await res.json();
+                            throw new Error(errData.message);
+                        } catch(e) {
+                            throw new Error(res.status === 401 ? "管理員認證逾期 請刷新網頁重新登入" : "網路傳輸異常");
+                        }
+                    }
                     return res.json();
                 })
                 .then(data => {
@@ -151,18 +156,17 @@
                 })
                 .catch(err => {
                     console.error(err);
-                    channelSelect.innerHTML = '<option value="">連線錯誤，請重新切換伺服器</option>';
+                    channelSelect.innerHTML = `<option value="">底層傳輸失敗 (${err.message})</option>`;
                 });
         }
 
-        // 廣播非同步送出
         function submitBroadcast() {
             const guildId = document.getElementById('broadcast-guild').value;
             const channelId = document.getElementById('broadcast-channel').value;
             const message = document.getElementById('broadcast-msg').value;
 
             if (!guildId || !channelId || !message.trim()) {
-                alert("請填妥伺服器、文字頻道以及訊息內容後再進行發送。");
+                alert("請填妥伺服器 文字頻道以及訊息內容後再進行發送。");
                 return;
             }
 
@@ -171,17 +175,16 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ guild_id: guildId, channel_id: channelId, message: message })
             })
-            .then(res => res.json())
-            .then(data => {
+            .then(async res => {
+                const data = await res.json();
                 alert(data.message);
-                if (data.success) {
+                if (res.ok && data.success) {
                     document.getElementById('broadcast-msg').value = '';
                 }
             })
-            .catch(() => alert("系統發送異常，請稍後再試。"));
+            .catch(() => alert("系統發送異常 請檢查網路連線。"));
         }
 
-        // 語音控制非同步送出
         function submitVoiceAction(action) {
             const guildId = document.getElementById('voice-guild').value;
             const channelId = document.getElementById('voice-channel').value;
@@ -206,15 +209,19 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             })
-            .then(res => res.json())
-            .then(data => alert(data.message))
-            .catch(() => alert("系統調度異常，請檢視後端日誌。"));
+            .then(async res => {
+                const data = await res.json();
+                alert(data.message);
+            })
+            .catch(() => alert("語音調度任務發送失敗。"));
         }
 
-        // 日誌排程輪詢（每 3 秒自動更新）
         setInterval(() => {
             fetch('/api/logs')
-                .then(res => res.json())
+                .then(res => {
+                    if(!res.ok) throw new Error();
+                    return res.json();
+                })
                 .then(data => {
                     const container = document.getElementById('log-container');
                     const isAtBottom = container.scrollHeight - container.clientHeight <= container.scrollTop + 20;
@@ -223,7 +230,7 @@
                         container.scrollTop = container.scrollHeight;
                     }
                 })
-                .catch(err => console.log("日誌同步失敗"));
+                .catch(() => console.log("日誌同步暫時中斷"));
         }, 3000);
     </script>
 </body>
