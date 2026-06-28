@@ -33,24 +33,21 @@ def get_status():
         bot_status["ram"] = psutil.virtual_memory().percent
     return jsonify(bot_status)
 
-@app.route('/get_channels/<int:guild_id>')
-def get_channels(guild_id):
+# 1. 語音頻道的路由與函式
+@app.route('/get_voice_channels/<int:guild_id>')
+def get_voice_channels(guild_id):  # 修改這裡的名稱，確保唯一性
     guild = bot.get_guild(guild_id)
     if not guild:
-        return jsonify([]) # 找不到伺服器時回傳空陣列
-    
-    # 關鍵修正：將文字頻道的 ch.id 加上 str() 轉為字串，防止精度流失
-    channels = [{"id": str(ch.id), "name": ch.name} for ch in guild.text_channels]
+        return jsonify([])
+    channels = [{"id": str(ch.id), "name": ch.name} for ch in guild.voice_channels]
     return jsonify(channels)
 
-# 新增：獲取語音頻道列表的 API
-@app.route('/get_voice_channels/<int:guild_id>')
-def get_channels(guild_id):
+# 2. 文字頻道的路由與函式
+@app.route('/get_channels/<int:guild_id>')
+def get_channels(guild_id):  # 這裡維持原樣
     guild = bot.get_guild(guild_id)
     if not guild:
-        return jsonify([]) # 找不到伺服器時回傳空陣列
-    
-    # 關鍵修正：將文字頻道的 ch.id 加上 str() 轉為字串，防止精度流失
+        return jsonify([])
     channels = [{"id": str(ch.id), "name": ch.name} for ch in guild.text_channels]
     return jsonify(channels)
 
