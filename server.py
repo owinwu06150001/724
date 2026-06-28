@@ -3,7 +3,7 @@ import asyncio
 import threading
 import secrets
 import requests
-from flask import Flask, render_template, jsonify, request, session, redirect, url_path_to_dict, url_for
+from flask import Flask, render_template, jsonify, request, session, redirect, url_for
 import discord
 
 # 1. 設置 Flask 應用程式與金鑰
@@ -11,7 +11,7 @@ app = Flask(__name__)
 # 建議在 Render 環境變數中設定 FLASK_SECRET_KEY，若無則自動生成隨機金鑰
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", secrets.token_hex(16))
 
-# 宣告全域變裝，留空等待 bot.py 透過 set_bot() 注入
+# 宣告全域變數，留空等待 bot.py 透過 set_bot() 注入
 bot = None
 _flask_started = False
 log_store = ["系統初始化成功，等待機器人連線..."]
@@ -129,7 +129,7 @@ def login_google_callback():
         session["user_email"] = user_info_res.get("email")
         add_log(f"[安全] 使用者 {session['user_email']} 透過 Google 登入成功。")
         
-        # 根據您的需求：Google 登入後仍需補足密碼驗證
+        # 根據安全邏輯：Google 驗證成功後，仍需導回輸入管理員密碼
         if not session.get("password_verified"):
             return '''
             <script>
@@ -148,7 +148,7 @@ def logout():
 
 
 # ==========================================
-# 網頁路由區塊（全面增加防護與擴充功能）
+# 網頁路由區塊
 # ==========================================
 
 @app.route('/')
@@ -183,13 +183,13 @@ def admin_page():
 
 @app.route('/api/logs')
 def get_logs_api():
-    """新功能：供網頁前端透過 AJAX 即時更新日誌，不需重新整理整個網頁"""
+    """供網頁前端即時更新日誌"""
     return jsonify({"logs": log_store})
 
 @app.route('/api/queues')
 @login_required
 def get_queues_api():
-    """新功能：獲取目前的廣播與語音排隊狀態"""
+    """獲取目前的廣播與語音排隊狀態"""
     return jsonify({
         "broadcast_queue": broadcast_queue,
         "voice_queue": voice_queue
@@ -251,7 +251,7 @@ def join_voice():
 @app.route('/leave_voice', methods=['POST'])
 @login_required
 def leave_voice():
-    """新功能：切斷機器人與指定伺服器的語音連線"""
+    """切斷機器人與指定伺服器的語音連線"""
     data = request.get_json() or {}
     guild_id = data.get('guild_id')
     if not guild_id:
