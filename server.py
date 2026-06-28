@@ -37,19 +37,21 @@ def get_status():
 def get_channels(guild_id):
     guild = bot.get_guild(guild_id)
     if not guild:
-        return jsonify([])
-    # 關鍵修正：將 ch.id 加上 str() 轉為字串，防止前端 JS 精度流失
+        return jsonify([]) # 找不到伺服器時回傳空陣列
+    
+    # 關鍵修正：將文字頻道的 ch.id 加上 str() 轉為字串，防止精度流失
     channels = [{"id": str(ch.id), "name": ch.name} for ch in guild.text_channels]
     return jsonify(channels)
 
 # 新增：獲取語音頻道列表的 API
 @app.route('/get_voice_channels/<int:guild_id>')
-def get_voice_channels(guild_id):
+def get_channels(guild_id):
     guild = bot.get_guild(guild_id)
     if not guild:
-        return jsonify([])
-    # 關鍵修正：將 ch.id 加上 str() 轉為字串，防止前端 JS 精度流失
-    channels = [{"id": str(ch.id), "name": ch.name} for ch in guild.voice_channels]
+        return jsonify([]) # 找不到伺服器時回傳空陣列
+    
+    # 關鍵修正：將文字頻道的 ch.id 加上 str() 轉為字串，防止精度流失
+    channels = [{"id": str(ch.id), "name": ch.name} for ch in guild.text_channels]
     return jsonify(channels)
 
 @app.route('/broadcast', methods=['POST'])
