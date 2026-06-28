@@ -242,5 +242,88 @@
             }
         }
     </script>
+
+
+    function onTextGuildChange(guildId) {
+    // ⚠️ 請確保此 ID 與您網頁中「文字頻道」下拉選單的 id 屬性一致
+    const channelSelect = document.getElementById('text-channel-select'); 
+    
+    if (!guildId) {
+        channelSelect.innerHTML = '<option value="">請先選擇伺服器</option>';
+        return;
+    }
+
+    // 發送請求給後端文字頻道路由
+    fetch(`/get_channels/${guildId}`)
+        .then(response => {
+            if (!response.ok) throw new Error('網路回應錯誤');
+            return response.json();
+        })
+        .then(channels => {
+            channelSelect.innerHTML = ''; // 清空舊選項
+
+            if (channels.length === 0) {
+                channelSelect.innerHTML = '<option value="">此伺服器沒有可用的文字頻道</option>';
+                return;
+            }
+
+            // 遍歷後端回傳的乾淨陣列
+            channels.forEach(ch => {
+                const option = document.createElement('option');
+                option.value = ch.id; // 這裡拿到的是不失真的字串 ID
+                option.textContent = ch.name;
+                channelSelect.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('解析文字頻道失敗:', error);
+            channelSelect.innerHTML = '<option value="">底層資料傳輸失敗，請重新切換伺服器嘗試</option>';
+        });
+}
+
+// ==========================================
+// 2. 遠端語音連線控制區塊邏輯
+// ==========================================
+
+// 當「語音控制」的伺服器選單切換時觸發
+function onVoiceGuildChange(guildId) {
+    // ⚠️ 請確保此 ID 與您網頁中「語音頻道」下拉選單的 id 屬性一致
+    const voiceSelect = document.getElementById('voice-channel-select'); 
+    
+    if (!guildId) {
+        voiceSelect.innerHTML = '<option value="">請先選擇伺服器</option>';
+        return;
+    }
+
+    // 發送請求給後端語音頻道路由
+    fetch(`/get_voice_channels/${guildId}`)
+        .then(response => {
+            if (!response.ok) throw new Error('網路回應錯誤');
+            return response.json();
+        })
+        .then(channels => {
+            voiceSelect.innerHTML = ''; // 清空舊選項
+
+            if (channels.length === 0) {
+                voiceSelect.innerHTML = '<option value="">此伺服器沒有可用的語音頻道</option>';
+                return;
+            }
+
+            // 遍歷後端回傳的乾淨陣列
+            channels.forEach(ch => {
+                const option = document.createElement('option');
+                option.value = ch.id; // 這裡拿到的是不失真的字串 ID
+                option.textContent = ch.name;
+                voiceSelect.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('解析語音頻道失敗:', error);
+            voiceSelect.innerHTML = '<option value="">底層資料傳輸失敗，請重新切換伺服器嘗試</option>';
+        });
+
+}
+
+
 </body>
 </html>
