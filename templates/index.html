@@ -3,121 +3,128 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>機器人管理後台</title>
-    {% raw %}
+    <title>機器人核心控制台 - 狀態監控</title>
     <style>
-        body { background: #0f172a; color: #f8fafc; padding: 30px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; }
-        .container { max-width: 1100px; margin: 0 auto; }
-        h1 { font-size: 28px; font-weight: 700; margin-bottom: 25px; color: #f1f5f9; border-left: 5px solid #5865F2; padding-left: 15px; }
-        h3 { font-size: 18px; margin-top: 0; margin-bottom: 15px; color: #cbd5e1; font-weight: 600; }
-        .main-card { background: #1e293b; padding: 24px; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); border: 1px solid #334155; margin-bottom: 25px; }
-        .stats-bar { display: flex; gap: 20px; background: #0f172a; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #1e293b; font-size: 14px; color: #94a3b8; }
-        .stats-bar span { color: #38bdf8; font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 15px; }
-        th { background: #0f172a; color: #94a3b8; text-align: left; padding: 12px; font-weight: 600; }
-        /* 確保終端機區塊擁有自動換行與滾動條 */
-        .terminal { height: 180px; overflow-y: auto; background: #090d16; color: #34d399; margin-top: 15px; padding: 15px; font-family: "Fira Code", Menlo, Monaco, Consolas, monospace; font-size: 13px; border-radius: 8px; border: 1px solid #1e293b; line-height: 1.6; white-space: pre-wrap; word-break: break-all; }
-        .grid-layout { display: grid; grid-template-columns: 1fr 1.5fr; gap: 25px; }
-        .sub-card { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2); }
-        input, select, textarea { width: 100%; background: #0f172a; border: 1px solid #475569; color: #f8fafc; padding: 10px 14px; border-radius: 6px; margin-bottom: 12px; font-size: 14px; box-sizing: border-box; transition: all 0.2s; }
-        input:focus, select:focus, textarea:focus { outline: none; border-color: #5865F2; box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.2); }
-        textarea { resize: vertical; height: 90px; }
-        button { background: #5865F2; color: white; border: none; padding: 10px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s; font-size: 14px; }
-        button:hover { background: #4752c4; }
-        .btn-danger { background: #f43f5e; }
-        .btn-danger:hover { background: #e11d48; }
-        .flex-buttons { display: flex; gap: 10px; }
+        body {
+            background-color: #121824;
+            color: #e2e8f0;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #1e293b;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+        }
+        h1 { margin: 0; color: #38bdf8; font-size: 24px; }
+        .btn {
+            background-color: #2563eb;
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        .btn:hover { background-color: #1d4ed8; }
+        .status-card {
+            background-color: #1e293b;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
+        }
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        .status-item {
+            background-color: #0f172a;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .status-label { font-size: 14px; color: #94a3b8; margin-bottom: 5px; }
+        .status-value { font-size: 18px; font-weight: bold; color: #f1f5f9; }
+        .terminal {
+            background-color: #050b14;
+            border: 1px solid #1e293b;
+            border-radius: 6px;
+            padding: 15px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            color: #4ade80;
+            line-height: 1.6;
+            height: 350px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
     </style>
-    {% endraw %}
 </head>
 <body>
     <div class="container">
-        <h1>機器人管理後台</h1>
+        <div class="header">
+            <h1>機器人狀態即時監控面板</h1>
+            <a href="/admin" class="btn">進入管理後台</a>
+        </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h2 style="color: #f8fafc; font-size: 20px;">機器人運行狀態監控</h2>
-            <a href="/admin" style="
-                display: inline-block;
-                background-color: #38bdf8;
-                color: #0f172a;
-                text-decoration: none;
-                padding: 10px 20px;
-                border-radius: 6px;
-                font-weight: 600;
-                font-size: 14px;
-                transition: background-color 0.3s;
-            " onmouseover="this.style.backgroundColor='#0ea5e9'" onmouseout="this.style.backgroundColor='#38bdf8'">
-                進入管理後台
-            </a>
-        </div>
-        
-        <div class="main-card">
-            <h3>系統監控</h3>
-            <div class="stats-bar">
-                 <div>CPU 使用率: <span id="s-cpu">{{ bot_status['cpu'] }}%</span></div>
-                 <div>RAM 使用率: <span id="s-ram">{{ bot_status['ram'] }}%</span></div>
-                 <div>網路延遲: <span id="s-lat">{{ bot_status['latency'] }}ms</span></div>
+        <div class="status-card">
+            <div class="status-grid">
+                <div class="status-item">
+                    <div class="status-label">機器人連線狀態</div>
+                    <div class="status-value" id="bot-status">連線檢索中...</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">當前帳號名稱</div>
+                    <div class="status-value" id="bot-name">載入中...</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">已進駐伺服器總數</div>
+                    <div class="status-value" id="bot-guilds">0 個</div>
+                </div>
             </div>
-            
-            <table>
-                <thead>
-                    <tr>
-                        <th style="border-top-left-radius: 6px; border-bottom-left-radius: 6px;">伺服器名稱</th>
-                        <th>成員數量</th>
-                        <th style="border-top-right-radius: 6px; border-bottom-right-radius: 6px;">連線狀態</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{ guild_rows|safe }}
-                </tbody>
-            </table>
-            
-            <div class="terminal" id="logs-container">{{ log_content|safe }}</div>
         </div>
+
+        <h3>系統即時操作日誌</h3>
+        <div class="terminal" id="logs-container">{{ log_content|safe }}</div>
     </div>
 
     <script>
-        // 強制將日誌滾動條拉到最底部的函式
-        function scrollToBottom() {
-            const logsContainer = document.getElementById('logs-container');
-            if (logsContainer) {
-                logsContainer.scrollTop = logsContainer.scrollHeight;
-            }
-        }
-
-        // 當網頁載入完成時，立刻執行一次置底
-        window.addEventListener('DOMContentLoaded', () => {
-            scrollToBottom();
-            // 每 3 秒自動向後端刷新一次數據（若您有設定即時更新 API）
-            setInterval(refreshSystemData, 3000);
-        });
-
-        // 定時向後端獲取最新狀態與日誌的 AJAX 邏輯
-        function refreshSystemData() {
-            // ⚠️ 請對照您後端實際提供監控數據的 API 路由名稱（例如 /get_stats）
-            fetch('/get_stats_api') 
-                .then(response => {
-                    if (!response.ok) throw new Error();
-                    return response.json();
-                })
+        // 定時向後端拉取最新狀態資訊
+        function updateStatus() {
+            fetch('/status')
+                .then(res => res.json())
                 .then(data => {
-                    // 1. 動態更新 CPU、RAM 與延遲
-                    document.getElementById('s-cpu').textContent = data.cpu + '%';
-                    document.getElementById('s-ram').textContent = data.ram + '%';
-                    document.getElementById('s-lat').textContent = data.latency + 'ms';
-                    
-                    // 2. 動態更新日誌區塊（若後端傳回的是 List 陣列，則用換行結合）
-                    const logsContainer = document.getElementById('logs-container');
-                    logsContainer.innerHTML = data.logs.join('\n');
-                    
-                    // 3. 關鍵：日誌填入完成後，立刻將捲軸再次吸附到最底部
-                    scrollToBottom();
+                    const statusEl = document.getElementById('bot-status');
+                    if (data.bot_online) {
+                        statusEl.textContent = '在線 (Online)';
+                        statusEl.style.color = '#4ade80';
+                    } else {
+                        statusEl.textContent = '離線 (Offline)';
+                        statusEl.style.color = '#ef4444';
+                    }
+                    document.getElementById('bot-name').textContent = data.bot_name;
+                    document.getElementById('bot-guilds').textContent = data.guilds_count + ' 個';
                 })
-                .catch(err => {
-                    // 靜態網頁環境下若無此 API 可忽略錯誤
-                    console.log('即時數據刷新暫時無法連線');
-                });
+                .catch(err => console.error('無法取得狀態快取', err));
         }
+
+        // 頁面載入後自動滾動日誌到最底端
+        const logBox = document.getElementById('logs-container');
+        logBox.scrollTop = logBox.scrollHeight;
+
+        // 每 5 秒自動重新整理狀態欄位
+        setInterval(updateStatus, 5000);
+        updateStatus();
     </script>
 </body>
 </html>
