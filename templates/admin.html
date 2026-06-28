@@ -81,17 +81,20 @@
         <div class="card">
             <div class="card-title">遠端語音連線控制</div>
             <div class="form-group">
-                <label for="voice_guild">選擇目標伺服器</label>
-                <select id="voice_guild" onchange="loadVoiceChannels(this.value)">
-                    <option value="">-- 請選擇伺服器 --</option>
-                    {{ guild_options | safe }}
+              <select id="text-guild-select" onchange="onTextGuildChange(this.value)">
+                   <option value="">-- 請選擇伺服器 --</option>
+                     {% for g in guilds %}
+                           <option value="{{ g.id }}">{{ g.name }}</option>
+                   {% endfor %}
                 </select>
             </div>
             <div class="form-group">
-                <label for="voice_channel">選擇加入語音頻道</label>
-                <select id="voice_channel">
-                    <option value="">-- 請先在上欄選擇伺服器 --</option>
-                </select>
+                <select id="voice-guild-select" onchange="onVoiceGuildChange(this.value)">
+    <option value="">-- 請選擇伺服器 --</option>
+    {% for g in guilds %}
+        <option value="{{ g.id }}">{{ g.name }}</option>
+    {% endfor %}
+</select>
             </div>
             <button class="btn" onclick="joinVoice()">調動機器人加入該語音頻道</button>
         </div>
