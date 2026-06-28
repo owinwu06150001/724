@@ -34,22 +34,19 @@ def get_status():
     return jsonify(bot_status)
 
 # 1. 語音頻道的路由與函式
-@app.route('/get_voice_channels/<int:guild_id>')
-def get_voice_channels(guild_id):  # 修改這裡的名稱，確保唯一性
-    guild = bot.get_guild(guild_id)
-    if not guild:
-        return jsonify([])
-    channels = [{"id": str(ch.id), "name": ch.name} for ch in guild.voice_channels]
-    return jsonify(channels)
-
-# 2. 文字頻道的路由與函式
 @app.route('/get_channels/<int:guild_id>')
-def get_channels(guild_id):  # 這裡維持原樣
+def get_channels(guild_id):
     guild = bot.get_guild(guild_id)
     if not guild:
-        return jsonify([])
-    channels = [{"id": str(ch.id), "name": ch.name} for ch in guild.text_channels]
-    return jsonify(channels)
+        return jsonify([]) # 找不到伺服器時回傳空陣列
+    return jsonify([{"id": str(ch.id), "name": ch.name} for ch in guild.text_channels])
+
+@app.route('/get_voice_channels/<int:guild_id>')
+def get_voice_channels(guild_id):
+    guild = bot.get_guild(guild_id)
+    if not guild:
+        return jsonify([]) # 找不到伺服器時回傳空陣列
+    return jsonify([{"id": str(ch.id), "name": ch.name} for ch in guild.voice_channels])
 
 @app.route('/broadcast', methods=['POST'])
 def broadcast():
