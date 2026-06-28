@@ -18,8 +18,12 @@ bot_status = {"latency": 0, "cpu": 0, "ram": 0, "logs": [], "restart_requested":
 
 def add_log(message):
     timestamp = datetime.now().strftime("%H:%M:%S")
-    bot_status["logs"].insert(0, f"[{timestamp}] {message}")
-    if len(bot_status["logs"]) > 20: bot_status["logs"].pop()
+    # 1. 改用 append：最新的日誌會加在陣列的最末端（最下面）
+    bot_status["logs"].append(f"[{timestamp}] {message}")
+    
+    # 2. 改用 pop(0)：當超過 100 條時，剔除最前端（最早、最舊）的日誌
+    if len(bot_status["logs"]) > 100: 
+        bot_status["logs"].pop(0)
 
 @app.route('/status', methods=['GET'])
 def get_status():
@@ -31,16 +35,22 @@ def get_status():
 
 @app.route('/get_channels/<int:guild_id>')
 def get_channels(guild_id):
-    if not _bot or not _bot.is_ready(): return jsonify([])
-    guild = _bot.get_guild(guild_id)
-    return jsonify([{"id": c.id, "name": c.name} for c in guild.text_channels]) if guild else jsonify([])
+    guild = bot.get_guild(guild_id)
+    if not guild:
+        return jsonify([])
+    # 關鍵修正：將 ch.id 加上 str() 轉為字串，防止前端 JS 精度流失
+    channels = [{"id": str(ch.id), "name": ch.name} for ch in guild.text_channels]
+    return jsonify(channels)
 
 # 新增：獲取語音頻道列表的 API
 @app.route('/get_voice_channels/<int:guild_id>')
 def get_voice_channels(guild_id):
-    if not _bot or not _bot.is_ready(): return jsonify([])
-    guild = _bot.get_guild(guild_id)
-    return jsonify([{"id": c.id, "name": c.name} for c in guild.voice_channels]) if guild else jsonify([])
+    guild = bot.get_guild(guild_id)
+    if not guild:
+        return jsonify([])
+    # 關鍵修正：將 ch.id 加上 str() 轉為字串，防止前端 JS 精度流失
+    channels = [{"id": str(ch.id), "name": ch.name} for ch in guild.voice_channels]
+    return jsonify(channels)
 
 @app.route('/broadcast', methods=['POST'])
 def broadcast():
