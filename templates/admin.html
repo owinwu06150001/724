@@ -3,252 +3,166 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>機器人核心控制台 - 遠端管理後台</title>
+    <title>Discord Bot 高級管理控制台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body {
-            background-color: #121824;
-            color: #e2e8f0;
-            font-family: 'Segoe UI', Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-        }
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid #1e293b;
-            padding-bottom: 15px;
-            margin-bottom: 25px;
-        }
-        h1 { margin: 0; color: #38bdf8; font-size: 24px; }
-        .btn-back {
-            background-color: #475569;
-            color: white;
-            text-decoration: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            font-weight: bold;
-        }
-        .control-card {
-            background-color: #1e293b;
-            border-radius: 8px;
-            padding: 25px;
-            margin-bottom: 30px;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
-            border-left: 5px solid #38bdf8;
-        }
-        .control-card h2 {
-            font-size: 18px;
-            margin-top: 0;
-            margin-bottom: 20px;
-            color: #f1f5f9;
-        }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        label {
-            display: block;
-            font-size: 14px;
-            color: #94a3b8;
-            margin-bottom: 8px;
-        }
-        select, textarea {
-            width: 100%;
-            padding: 12px;
-            background-color: #0f172a;
-            border: 1px solid #334155;
-            border-radius: 6px;
-            color: #f1f5f9;
-            font-size: 15px;
-            box-sizing: border-box;
-        }
-        select:focus, textarea:focus {
-            outline: none;
-            border-color: #38bdf8;
-        }
-        .action-btn {
-            width: 100%;
-            background-color: #38bdf8;
-            color: #0f172a;
-            border: none;
-            padding: 14px;
-            font-size: 16px;
-            font-weight: bold;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .action-btn:hover {
-            background-color: #0ea5e9;
-        }
-        .terminal-container {
-            margin-top: 20px;
-        }
-        .terminal {
-            background-color: #050b14;
-            border: 1px solid #1e293b;
-            border-radius: 6px;
-            padding: 15px;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 14px;
-            color: #4ade80;
-            height: 150px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
     </style>
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>遠端核心控制管理後台</h1>
-            <a href="/" class="btn-back">返回首頁面板</a>
-        </div>
+<body class="bg-[#0f172a] text-slate-200 min-h-screen font-sans">
 
-        <div class="control-card">
-            <h2>遠端文字廣播</h2>
-            <div class="form-group">
-                <label>選擇目標伺服器</label>
-                <select id="text-guild-select" onchange="onTextGuildChange(this.value)">
-                    <option value="">-- 請選擇目標伺服器 --</option>
-                    {% for g in guilds %}
-                        <option value="{{ g.id }}">{{ g.name }}</option>
-                    {% endfor %}
-                </select>
+    <header class="bg-[#1e293b] border-b border-slate-700 sticky top-0 z-50 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="h-3 w-3 rounded-full bg-emerald-500 animate-pulse"></div>
+                <h1 class="text-xl font-bold text-white tracking-wide">Discord Bot 管理後台</h1>
             </div>
-            <div class="form-group">
-                <label>選擇發送文字頻道</label>
-                <select id="text-channel-select">
-                    <option value="">請先選擇伺服器</option>
-                </select>
+            <div class="flex items-center gap-4">
+                <span class="text-sm bg-slate-800 px-3 py-1.5 rounded-md border border-slate-700 text-slate-400">
+                    管理員模式
+                </span>
+                <a href="/logout" class="bg-red-600/90 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors shadow-md shadow-red-900/20 focus:outline-none">
+                    登出控制台
+                </a>
             </div>
-            <div class="form-group">
-                <label>廣播訊息內容</label>
-                <textarea id="broadcast-message" rows="3" placeholder="請輸入欲推播的文字訊息..."></textarea>
-            </div>
-            <button class="action-btn" onclick="submitTextBroadcast()">發送訊息廣播任務</button>
         </div>
+    </header>
 
-        <div class="control-card" style="border-left-color: #a855f7;">
-            <h2>遠端語音連線控制</h2>
-            <div class="form-group">
-                <label>選擇目標伺服器</label>
-                <select id="voice-guild-select" onchange="onVoiceGuildChange(this.value)">
-                    <option value="">-- 請選擇目標伺服器 --</option>
-                    {% for g in guilds %}
-                        <option value="{{ g.id }}">{{ g.name }}</option>
-                    {% endfor %}
-                </select>
+    <main class="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <section class="lg:col-span-5 flex flex-col gap-4">
+            <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-xl flex-1 flex flex-col min-h-[400px]">
+                <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+                    <h3 class="text-md font-semibold text-slate-300 tracking-wider">系統日誌事件</h3>
+                    <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded">動態即時更新</span>
+                </div>
+                <div id="log-container" class="bg-[#0f172a] p-4 rounded-lg font-mono text-xs text-emerald-400 overflow-y-auto flex-1 h-[350px] leading-relaxed whitespace-pre-wrap border border-slate-800">
+                    {{ log_content }}
+                </div>
             </div>
-            <div class="form-group">
-                <label>選擇加入語音頻道</label>
-                <select id="voice-channel-select">
-                    <option value="">請先選擇伺服器</option>
-                </select>
-            </div>
-            <button class="action-btn" style="background-color: #a855f7; color: white;" onclick="submitVoiceJoin()">調動機器人加入該語音頻道</button>
-        </div>
+        </section>
 
-        <div class="terminal-container">
-            <h3>系統執行回報狀態</h3>
-            <div class="terminal" id="admin-logs">{{ log_content|safe }}</div>
-        </div>
-    </div>
+        <section class="lg:col-span-7 flex flex-col gap-8">
+            
+            <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-xl space-y-4">
+                <div class="border-l-4 border-blue-500 pl-3">
+                    <h2 class="text-lg font-bold text-white tracking-wide">遠端文字廣播</h2>
+                </div>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1.5">選擇目標伺服器</label>
+                        <select id="broadcast-guild" onchange="loadChannels('text')" class="w-full bg-[#0f172a] border border-slate-600 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition">
+                            <option value="">-- 請選擇伺服器 --</option>
+                            {% for g in guilds %}
+                            <option value="{{ g.id }}">{{ g.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1.5">選擇發送文字頻道</label>
+                        <select id="broadcast-channel" class="w-full bg-[#0f172a] border border-slate-600 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition">
+                            <option value="">-- 請先選擇伺服器 --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1.5">廣播訊息內容</label>
+                    <textarea id="broadcast-msg" rows="3" placeholder="請輸入欲推播的文字訊息..." class="w-full bg-[#0f172a] border border-slate-600 rounded-lg p-3 text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition placeholder-slate-500 resize-none"></textarea>
+                </div>
+
+                <button onclick="submitBroadcast()" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors text-sm shadow-md shadow-blue-900/20">
+                    發送訊息廣播任務
+                </button>
+            </div>
+
+            <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-xl space-y-4">
+                <div class="border-l-4 border-cyan-500 pl-3">
+                    <h2 class="text-lg font-bold text-white tracking-wide">遠端語音連線控制</h2>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1.5">選擇目標伺服器</label>
+                        <select id="voice-guild" onchange="loadChannels('voice')" class="w-full bg-[#0f172a] border border-slate-600 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500 transition">
+                            <option value="">-- 請選擇伺服器 --</option>
+                            {% for g in guilds %}
+                            <option value="{{ g.id }}">{{ g.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1.5">選擇加入語音頻道</label>
+                        <select id="voice-channel" class="w-full bg-[#0f172a] border border-slate-600 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500 transition">
+                            <option value="">-- 請先選擇伺服器 --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                    <button onclick="submitVoiceAction('join')" class="py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white font-medium rounded-lg transition-colors text-sm shadow-md shadow-cyan-900/20">
+                        調動機器人加入該語音頻道
+                    </button>
+                    <button onclick="submitVoiceAction('leave')" class="py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium rounded-lg transition-colors text-sm border border-slate-600">
+                        強制切斷語音連線 (離開)
+                    </button>
+                </div>
+            </div>
+
+        </section>
+    </main>
 
     <script>
-        // 自動拉回日誌到底部的輔助函式
-        const logWindow = document.getElementById('admin-logs');
-        logWindow.scrollTop = logWindow.scrollHeight;
+        // 動態頻道載入功能
+        function loadChannels(type) {
+            const guildSelect = document.getElementById(`${type}-guild`);
+            const channelSelect = document.getElementById(`${type}-channel`);
+            const guildId = guildSelect.value;
 
-        function refreshConsoleLogs() {
-            // 自動引導使用者重新整理網頁或查看下方回報狀態
-            logWindow.scrollTop = logWindow.scrollHeight;
-        }
-
-        // 1. 遠端文字廣播下拉選單觸發邏輯
-        function onTextGuildChange(guildId) {
-            const channelSelect = document.getElementById('text-channel-select'); 
+            // 如果使用者選回預設提示，則直接清空頻道列表，不向後端發送請求
             if (!guildId) {
-                channelSelect.innerHTML = '<option value="">請先選擇伺服器</option>';
+                channelSelect.innerHTML = '<option value="">-- 請先選擇伺服器 --</option>';
                 return;
             }
-            channelSelect.innerHTML = '<option value="">正在動態獲取頻道中...</option>';
 
-            fetch(`/get_channels/${guildId}`)
-                .then(response => {
-                    if (!response.ok) throw new Error('HTTP 傳輸代碼出錯: ' + response.status);
-                    return response.json();
+            channelSelect.innerHTML = '<option value="">讀取頻道資料中...</option>';
+            const apiUrl = type === 'text' ? `/get_channels/${guildId}` : `/get_voice_channels/${guildId}`;
+
+            fetch(apiUrl)
+                .then(res => {
+                    if (!res.ok) throw new Error("HTTP 狀態異常");
+                    return res.json();
                 })
-                .then(channels => {
+                .then(data => {
                     channelSelect.innerHTML = '';
-                    const list = Array.isArray(channels) ? channels : [];
-                    
-                    if (list.length === 0) {
-                        channelSelect.innerHTML = '<option value="">此伺服器沒有可用的文字頻道</option>';
+                    if (data.length === 0) {
+                        channelSelect.innerHTML = '<option value="">該伺服器無可用頻道</option>';
                         return;
                     }
-
-                    list.forEach(ch => {
-                        const option = document.createElement('option');
-                        option.value = String(ch.id); // 強制字串儲存
-                        option.textContent = ch.name;
-                        channelSelect.appendChild(option);
+                    data.forEach(ch => {
+                        const opt = document.createElement('option');
+                        opt.value = ch.id;
+                        opt.textContent = ch.name;
+                        channelSelect.appendChild(opt);
                     });
                 })
-                .catch(error => {
-                    console.error('文字頻道加載失敗:', error);
-                    channelSelect.innerHTML = '<option value="">底層資料傳輸失敗，請重新切換伺服器嘗試</option>';
+                .catch(err => {
+                    console.error(err);
+                    channelSelect.innerHTML = '<option value="">連線錯誤，請重新切換伺服器</option>';
                 });
         }
 
-        // 2. 遠端語音連線下拉選單觸發邏輯
-        function onVoiceGuildChange(guildId) {
-            const voiceSelect = document.getElementById('voice-channel-select'); 
-            if (!guildId) {
-                voiceSelect.innerHTML = '<option value="">請先選擇伺服器</option>';
-                return;
-            }
-            voiceSelect.innerHTML = '<option value="">正在動態獲取頻道中...</option>';
-
-            fetch(`/get_voice_channels/${guildId}`)
-                .then(response => {
-                    if (!response.ok) throw new Error('HTTP 傳輸代碼出錯: ' + response.status);
-                    return response.json();
-                })
-                .then(channels => {
-                    voiceSelect.innerHTML = '';
-                    const list = Array.isArray(channels) ? channels : [];
-                    
-                    if (list.length === 0) {
-                        voiceSelect.innerHTML = '<option value="">此伺服器沒有可用的語音頻道</option>';
-                        return;
-                    }
-
-                    list.forEach(ch => {
-                        const option = document.createElement('option');
-                        option.value = String(ch.id); // 強制字串儲存
-                        option.textContent = ch.name;
-                        voiceSelect.appendChild(option);
-                    });
-                })
-                .catch(error => {
-                    console.error('語音頻道加載失敗:', error);
-                    voiceSelect.innerHTML = '<option value="">底層資料傳輸失敗，請重新切換伺服器嘗試</option>';
-                });
-        }
-
-        // 3. 發送文字廣播任務表單提交
-        function submitTextBroadcast() {
-            const guildId = document.getElementById('text-guild-select').value;
-            const channelId = document.getElementById('text-channel-select').value;
-            const message = document.getElementById('broadcast-message').value;
+        // 廣播非同步送出
+        function submitBroadcast() {
+            const guildId = document.getElementById('broadcast-guild').value;
+            const channelId = document.getElementById('broadcast-channel').value;
+            const message = document.getElementById('broadcast-msg').value;
 
             if (!guildId || !channelId || !message.trim()) {
-                alert('請完整選取伺服器、頻道並填寫訊息內容！');
+                alert("請填妥伺服器、文字頻道以及訊息內容後再進行發送。");
                 return;
             }
 
@@ -260,36 +174,57 @@
             .then(res => res.json())
             .then(data => {
                 alert(data.message);
-                if(data.success) {
-                    document.getElementById('broadcast-message').value = '';
-                    location.reload(); // 刷新網頁以同步底部日誌
+                if (data.success) {
+                    document.getElementById('broadcast-msg').value = '';
                 }
             })
-            .catch(err => alert('發送失敗，請檢查網路連線狀態'));
+            .catch(() => alert("系統發送異常，請稍後再試。"));
         }
 
-        // 4. 調動機器人加入語音頻道表單提交
-        function submitVoiceJoin() {
-            const guildId = document.getElementById('voice-guild-select').value;
-            const channelId = document.getElementById('voice-channel-select').value;
+        // 語音控制非同步送出
+        function submitVoiceAction(action) {
+            const guildId = document.getElementById('voice-guild').value;
+            const channelId = document.getElementById('voice-channel').value;
 
-            if (!guildId || !channelId) {
-                alert('請完整選取伺服器與目標語音頻道！');
+            if (!guildId) {
+                alert("請先選擇目標伺服器。");
                 return;
             }
 
-            fetch('/join_voice', {
+            if (action === 'join' && !channelId) {
+                alert("請選擇欲加入的語音頻道。");
+                return;
+            }
+
+            const url = action === 'join' ? '/join_voice' : '/leave_voice';
+            const payload = action === 'join' 
+                ? { guild_id: guildId, channel_id: channelId } 
+                : { guild_id: guildId };
+
+            fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ guild_id: guildId, channel_id: channelId })
+                body: JSON.stringify(payload)
             })
             .then(res => res.json())
-            .then(data => {
-                alert(data.message);
-                location.reload(); // 刷新網頁以同步底部日誌
-            })
-            .catch(err => alert('語音指令傳送失敗，請確認後端運行狀態'));
+            .then(data => alert(data.message))
+            .catch(() => alert("系統調度異常，請檢視後端日誌。"));
         }
+
+        // 日誌排程輪詢（每 3 秒自動更新）
+        setInterval(() => {
+            fetch('/api/logs')
+                .then(res => res.json())
+                .then(data => {
+                    const container = document.getElementById('log-container');
+                    const isAtBottom = container.scrollHeight - container.clientHeight <= container.scrollTop + 20;
+                    container.textContent = data.logs.join('\n');
+                    if (isAtBottom) {
+                        container.scrollTop = container.scrollHeight;
+                    }
+                })
+                .catch(err => console.log("日誌同步失敗"));
+        }, 3000);
     </script>
 </body>
 </html>
