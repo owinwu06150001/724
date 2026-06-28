@@ -168,19 +168,34 @@ async def check_broadcast():
     if server.voice_queue:
         job = server.voice_queue.pop(0)
         if job.get('action') == "join":
-            guild = bot.get_guild(job.get('guild_id'))
-            channel = bot.get_channel(job.get('channel_id'))
+            g_id = job.get('guild_id')
+            c_id = job.get('channel_id')
             
+            guild = bot.get_guild(g_id)
+            channel = bot.get_channel(c_id)
+            
+            # 如果快取找不到頻道，嘗試從伺服器取得
+            if guild and not channel:
+                channel = guild.get_channel(c_id)
+            if not channel:
+                try:
+                    channel = await bot.fetch_channel(c_id)
+                except:
+                    channel = None
+            
+            # 執行加入或移動
             if guild and channel:
                 try:
-                    # 如果機器人已經在該伺服器的某個語音頻道，直接移動過去
                     if guild.voice_client:
                         await guild.voice_client.move_to(channel)
+                        server.add_log(f"遠端控制: 機器人已移動至語音頻道「{channel.name}」")
                     else:
                         await channel.connect()
-                    server.add_log(f"遠端控制: 成功加入語音頻道「{channel.name}」")
+                        server.add_log(f"遠端控制: 成功加入語音頻道「{channel.name}」")
                 except Exception as e:
                     server.add_log(f"遠端控制失敗: 無法進入語音頻道，原因: {e}")
+            else:
+                server.add_log(f"遠端控制失敗: 找不到目標伺服器或語音頻道 (ID: {c_id})")
 @tasks.loop(seconds=5)
 async def check_restart():
     if hasattr(server, 'bot_status') and server.bot_status.get("restart_requested"):
