@@ -165,8 +165,7 @@ async def check_broadcast():
                 server.add_log(f"發送失敗: {e}")
         else:
             server.add_log("找不到頻道，無法發送")
-
-     if server.voice_queue:
+    if server.voice_queue:
         job = server.voice_queue.pop(0)
         if job.get('action') == "join":
             guild = bot.get_guild(job.get('guild_id'))
@@ -182,7 +181,6 @@ async def check_broadcast():
                     server.add_log(f"遠端控制: 成功加入語音頻道「{channel.name}」")
                 except Exception as e:
                     server.add_log(f"遠端控制失敗: 無法進入語音頻道，原因: {e}")
-
 @tasks.loop(seconds=5)
 async def check_restart():
     if hasattr(server, 'bot_status') and server.bot_status.get("restart_requested"):
