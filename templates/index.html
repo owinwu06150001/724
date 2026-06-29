@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>機器人狀態即時監控面板</title>
+    <title>機器人監控面板</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         ::-webkit-scrollbar { width: 6px; }
@@ -17,7 +17,7 @@
         <div class="max-w-7xl mx-auto px-4 py-5 flex justify-between items-center">
             <div class="flex items-center gap-3">
                 <div class="h-3 w-3 rounded-full bg-emerald-500 animate-pulse"></div>
-                <h1 class="text-xl font-bold text-white tracking-wide">機器人狀態即時監控面板</h1>
+                <h1 class="text-xl font-bold text-white tracking-wide">機器人監控面板</h1>
             </div>
             <a href="/admin" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-5 py-2 rounded-lg transition shadow-md focus:outline-none">
                 進入管理後台
@@ -41,19 +41,19 @@
                 <p id="bot-guilds-text" class="text-xl font-bold text-blue-400">0 個</p>
             </div>
             <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg text-center flex flex-col justify-center min-h-[120px]">
-                <p class="text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">中央處理器 (CPU)</p>
+                <p class="text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">(CPU)</p>
                 <p id="bot-cpu-text" class="text-xl font-bold text-cyan-400">0 %</p>
             </div>
             <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg text-center flex flex-col justify-center min-h-[120px]">
-                <p class="text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">記憶體 (RAM)</p>
+                <p class="text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">(RAM)</p>
                 <p id="bot-ram-text" class="text-xl font-bold text-purple-400">0 MB</p>
             </div>
         </div>
 
         <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg flex flex-col">
             <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
-                <h3 class="text-md font-semibold text-slate-300 tracking-wider">系統即時操作日誌</h3>
-                <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded">自動更新 (台北時間)</span>
+                <h3 class="text-md font-semibold text-slate-300 tracking-wider">系統即時日誌</h3>
+                <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded">自動更新</span>
             </div>
             <div id="log-container" class="bg-[#0f172a] p-4 rounded-lg font-mono text-xs text-emerald-400 overflow-y-auto h-[450px] leading-relaxed whitespace-pre-wrap border border-slate-800">
                 {{ log_content }}
@@ -80,7 +80,7 @@
                     document.getElementById('bot-cpu-text').textContent = data.cpu + " %";
                     document.getElementById('bot-ram-text').textContent = data.ram + " MB";
                 })
-                .catch(() => console.log("連線監控狀態同步失敗"));
+                .catch(() => console.log("監控狀態同步失敗"));
         }
 
         // 定時同步台北時間日誌
@@ -95,7 +95,7 @@
                         container.scrollTop = container.scrollHeight;
                     }
                 })
-                .catch(() => console.log("日誌流載入中斷"));
+                .catch(() => console.log("日誌載入中斷"));
         }
 
         // 頁面載入時先執行一次，隨後每 3 秒自動刷新
