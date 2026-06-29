@@ -20,7 +20,7 @@
                 <h1 class="text-xl font-bold text-white tracking-wide">機器人監控面板</h1>
             </div>
             <a href="/admin" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-5 py-2 rounded-lg transition shadow-md focus:outline-none">
-                進入管理系統
+                進入管理後台
             </a>
         </div>
     </header>
@@ -50,10 +50,30 @@
             </div>
         </div>
 
+        <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg">
+            <h3 class="text-md font-semibold text-slate-300 tracking-wider mb-4 border-b border-slate-700 pb-2">伺服器詳細狀態</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-700 text-slate-400 text-xs tracking-wider uppercase">
+                            <th class="px-4 py-3">伺服器名稱</th>
+                            <th class="px-4 py-3">當前總人數</th>
+                            <th class="px-4 py-3">機器人語音頻道狀態</th>
+                        </tr>
+                    </thead>
+                    <tbody id="guilds-list-container" class="divide-y divide-slate-800 text-sm">
+                        <tr>
+                            <td colspan="3" class="px-4 py-6 text-center text-slate-500">正在同步伺服器資料中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg flex flex-col">
             <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
-                <h3 class="text-md font-semibold text-slate-300 tracking-wider">系統即時操作日誌</h3>
-                <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded">自動更新 (台北時間)</span>
+                <h3 class="text-md font-semibold text-slate-300 tracking-wider">系統即時日誌</h3>
+                <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded">自動更新</span>
             </div>
             <div id="log-container" class="bg-[#0f172a] p-4 rounded-lg font-mono text-xs text-emerald-400 overflow-y-auto h-[450px] leading-relaxed whitespace-pre-wrap border border-slate-800">
                 {{ log_content }}
@@ -62,11 +82,12 @@
     </main>
 
     <script>
-        // 即時同步機器人狀態與五大指標資料
+        // 即時同步機器人狀態與數據指標資料
         function updateSystemStatus() {
             fetch('/status')
                 .then(res => res.json())
                 .then(data => {
+                    // 更新 5 大卡片指標
                     const statusEl = document.getElementById('bot-status-text');
                     if (data.bot_online) {
                         statusEl.textContent = "在線 (Online)";
@@ -79,6 +100,31 @@
                     document.getElementById('bot-guilds-text').textContent = data.guilds_count + " 個";
                     document.getElementById('bot-cpu-text').textContent = data.cpu + " %";
                     document.getElementById('bot-ram-text').textContent = data.ram + " MB";
+
+                    // 動態渲染伺服器名單、當前人數與語音頻道狀態
+                    const guildsContainer = document.getElementById('guilds-list-container');
+                    if (data.guilds && data.guilds.length > 0) {
+                        let html = '';
+                        data.guilds.forEach(g => {
+                            const voiceStatus = g.in_voice 
+                                ? `<span class="text-emerald-400 font-semibold">監聽中 (${g.voice_channel})</span>` 
+                                : '<span class="text-slate-500">睡覺中</span>';
+                            html += `
+                                <tr class="hover:bg-slate-800/40 transition">
+                                    <td class="px-4 py-3.5 text-white font-medium">${g.name}</td>
+                                    <td class="px-4 py-3.5 text-blue-400 font-medium">${g.member_count} 人</td>
+                                    <td class="px-4 py-3.5">${voiceStatus}</td>
+                                </tr>
+                            `;
+                        });
+                        guildsContainer.innerHTML = html;
+                    } else {
+                        guildsContainer.innerHTML = `
+                            <tr>
+                                <td colspan="3" class="px-4 py-6 text-center text-slate-500">目前機器人未進駐任何伺服器。</td>
+                            </tr>
+                        `;
+                    }
                 })
                 .catch(() => console.log("連線監控狀態同步失敗"));
         }
