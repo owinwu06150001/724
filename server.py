@@ -24,7 +24,7 @@ GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
 
 def add_log(message):
-    """產生帶有台北時間戳記的系統日誌"""
+    """產生台北時間戳記的系統日誌"""
     try:
         tz = zoneinfo.ZoneInfo("Asia/Taipei")
         timestamp = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
@@ -51,7 +51,7 @@ def login_required(f):
     return decorated_function
 
 # 初始化第一條日誌
-add_log("系統初始化成功，等待機器人連線...")
+add_log("系統初始化成功 等待機器人連線...")
 
 # ==========================================
 # 認證與登入路由
@@ -70,10 +70,10 @@ def login_page():
     </head>
     <body class="bg-[#0f172a] text-slate-200 flex items-center justify-center min-h-screen font-sans">
         <div class="bg-[#1e293b] p-8 rounded-xl shadow-2xl border border-slate-700 w-full max-w-md mx-4">
-            <h2 class="text-2xl font-bold text-center mb-6 text-white border-b border-slate-700 pb-3">控制台安全驗證</h2>
+            <h2 class="text-2xl font-bold text-center mb-6 text-white border-b border-slate-700 pb-3">控制台密碼系統</h2>
             <form action="/login/password" method="POST" class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-slate-400 mb-2">請輸入管理員金鑰</label>
+                    <label class="block text-sm font-medium text-slate-400 mb-2">請輸入管理員密碼</label>
                     <input type="password" name="password" placeholder="請輸入密碼" class="w-full px-4 py-3 bg-[#0f172a] border border-slate-600 rounded-lg focus:outline-none focus:border-blue-500 text-white placeholder-slate-500 transition">
                 </div>
                 <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition shadow-lg shadow-blue-900/30">使用密碼登入</button>
@@ -96,7 +96,7 @@ def login_password():
         session["password_verified"] = True
         session["authenticated"] = True
         return redirect(url_for("admin_page"))
-    return "密碼錯誤，請返回重新輸入", 403
+    return "密碼錯誤 請返回重新輸入", 403
 
 @app.route('/login/google')
 def login_google():
@@ -160,26 +160,40 @@ def index_page():
 
 @app.route('/status')
 def get_status():
-    """回傳完整的 5 大狀態"""
+    """回傳五大指標以及各伺服器的成員人數與語音頻道狀態"""
     if bot is None or not bot.is_ready():
         return jsonify({
             "bot_online": False, 
             "bot_name": "離線 / 啟動中", 
             "guilds_count": 0,
             "cpu": 0,
-            "ram": 0
+            "ram": 0,
+            "guilds": []
         })
     
     import random
     current_cpu = bot_status.get("cpu", 0) if bot_status.get("cpu", 0) != 0 else round(random.uniform(0.5, 3.5), 1)
     current_ram = bot_status.get("ram", 0) if bot_status.get("ram", 0) != 0 else round(random.uniform(45.0, 65.0), 1)
 
+    # 動態獲取伺服器當前人數與語音連線狀態
+    guilds_list = []
+    for g in bot.guilds:
+        in_voice = g.voice_client is not None and g.voice_client.is_connected()
+        guilds_list.append({
+            "id": str(g.id),
+            "name": g.name,
+            "member_count": g.member_count,
+            "in_voice": in_voice,
+            "voice_channel": g.voice_client.channel.name if (in_voice and g.voice_client.channel) else "未加入"
+        })
+
     return jsonify({
         "bot_online": True,
         "bot_name": bot.user.name if bot.user else "未知用戶",
         "guilds_count": len(bot.guilds),
         "cpu": current_cpu,
-        "ram": current_ram
+        "ram": current_ram,
+        "guilds": guilds_list
     })
 
 @app.route('/admin')
@@ -287,11 +301,11 @@ def send_broadcast():
 def set_bot(target_bot):
     global bot
     bot = target_bot
-    print("[系統] 收到 bot.py 傳入的 Bot 實例對接成功。")
+    print("[系統] 收到 bot.py 傳入的 Bot 實例，對接成功。")
     
     @bot.event
     async def on_ready():
-        add_log(f"[系統] 機器人已成功連線 登入身分: {bot.user.name} (ID: {bot.user.id})")
+        add_log(f"[系統] 機器人已成功連線。登入身分: {bot.user.name} (ID: {bot.user.id})")
 
 def run_flask():
     port = int(os.environ.get("PORT", 5000))
@@ -329,7 +343,7 @@ async def handle_leave_voice(guild_id: int):
     if guild.voice_client:
         try:
             await guild.voice_client.disconnect()
-            return True, f"系統提示: 機器人 離開 [{guild.name}] 的語音頻道。"
+            return True, f"系統提示: 機器人已登出 [{guild.name}] 的語音頻道。"
         except Exception as e:
             return False, f"登出語音失敗: {str(e)}"
     return False, "機器人目前未在該伺服器的語音頻道中"
