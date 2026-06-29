@@ -24,7 +24,7 @@ GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
 
 def add_log(message):
-    """產生台北時間戳記的系統日誌"""
+    """產生帶有台北時間戳記的系統日誌"""
     try:
         tz = zoneinfo.ZoneInfo("Asia/Taipei")
         timestamp = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
@@ -51,7 +51,7 @@ def login_required(f):
     return decorated_function
 
 # 初始化第一條日誌
-add_log("系統初始化成功 等待機器人連線...")
+add_log("系統初始化成功，等待機器人連線...")
 
 # ==========================================
 # 認證與登入路由
@@ -63,17 +63,17 @@ def login_page():
     <!DOCTYPE html>
     <html lang="zh-TW">
     <head>
-        <title>密碼系統</title>
+        <title>管理員認證</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <script src="https://cdn.tailwindcss.com"></script>
     </head>
     <body class="bg-[#0f172a] text-slate-200 flex items-center justify-center min-h-screen font-sans">
         <div class="bg-[#1e293b] p-8 rounded-xl shadow-2xl border border-slate-700 w-full max-w-md mx-4">
-            <h2 class="text-2xl font-bold text-center mb-6 text-white border-b border-slate-700 pb-3">控制台密碼系統</h2>
+            <h2 class="text-2xl font-bold text-center mb-6 text-white border-b border-slate-700 pb-3">控制台安全驗證</h2>
             <form action="/login/password" method="POST" class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-slate-400 mb-2">請輸入管理員密碼</label>
+                    <label class="block text-sm font-medium text-slate-400 mb-2">請輸入管理員金鑰</label>
                     <input type="password" name="password" placeholder="請輸入密碼" class="w-full px-4 py-3 bg-[#0f172a] border border-slate-600 rounded-lg focus:outline-none focus:border-blue-500 text-white placeholder-slate-500 transition">
                 </div>
                 <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition shadow-lg shadow-blue-900/30">使用密碼登入</button>
@@ -96,12 +96,12 @@ def login_password():
         session["password_verified"] = True
         session["authenticated"] = True
         return redirect(url_for("admin_page"))
-    return "密碼錯誤 請返回重新輸入", 403
+    return "密碼錯誤，請返回重新輸入", 403
 
 @app.route('/login/google')
 def login_google():
     if not GOOGLE_CLIENT_ID:
-        return "環境變數未配置 GOOGLE_CLIENT_ID 無法使用 Google 登入。", 400
+        return "環境變數未配置 GOOGLE_CLIENT_ID，無法使用 Google 登入。", 400
     redirect_uri = url_for("login_google_callback", _external=True)
     google_provider_url = (
         f"https://accounts.google.com/o/oauth2/v2/auth?"
@@ -114,7 +114,7 @@ def login_google():
 def login_google_callback():
     code = request.args.get("code")
     if not code:
-        return "授權失敗 未能從 Google 取得 Code", 400
+        return "授權失敗，未能從 Google 取得 Code", 400
 
     redirect_uri = url_for("login_google_callback", _external=True)
     token_url = "https://oauth2.googleapis.com/token"
