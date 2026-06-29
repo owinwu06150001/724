@@ -39,7 +39,8 @@ stats_channels = {}
 welcome_channels = {} 
 voice_log_channels = {} 
 start_time = datetime.datetime.now()
-status_toggle = True 
+status_toggle = True
+voice_client = await channel.connect(self_deafen=True)
 
 AUDIT_LOG_ACTIONS_CN = {
     "guild_update": "更新伺服器", "channel_create": "建立頻道", "channel_update": "更新頻道",
