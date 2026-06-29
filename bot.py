@@ -166,7 +166,8 @@ async def check_broadcast():
                 server.add_log(f"發送失敗: {e}")
         else:
             server.add_log("找不到頻道，無法發送")
-    if server.voice_queue:
+    voice_q = getattr(server, 'voice_queue', None)
+    if voice_q:
         job = server.voice_queue.pop(0)
         if job.get('action') == "join":
             g_id = job.get('guild_id')
