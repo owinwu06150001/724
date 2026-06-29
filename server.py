@@ -20,8 +20,10 @@ broadcast_queue = []  # 提供給 bot.py 讀取的廣播佇列，避免背景任
 bot_status = {"cpu": 0, "ram": 0}  
 
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123").strip()
-GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
-GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
+
+# 改為 Discord OAuth2 環境變數
+DISCORD_CLIENT_ID = os.environ.get("DISCORD_CLIENT_ID", "").strip()
+DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET", "").strip()
 
 def add_log(message):
     """產生帶有台北時間戳記的系統日誌"""
@@ -51,10 +53,10 @@ def login_required(f):
     return decorated_function
 
 # 初始化第一條日誌
-add_log("系統初始化成功，等待機器人連線...")
+add_log("系統初始化成功 等待機器人連線...")
 
 # ==========================================
-# 認證與登入路由
+# 認證與登入路由 (已切換為 Discord OAuth2)
 # ==========================================
 
 @app.route('/login', methods=['GET'])
@@ -63,7 +65,7 @@ def login_page():
     <!DOCTYPE html>
     <html lang="zh-TW">
     <head>
-        <title>管理員認證</title>
+        <title>密碼系統</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <script src="https://cdn.tailwindcss.com"></script>
@@ -83,7 +85,7 @@ def login_page():
                 <span class="flex-shrink mx-4 text-slate-500 text-sm">或</span>
                 <div class="flex-grow border-t border-slate-700"></div>
             </div>
-            <a href="/login/google" class="block w-full text-center py-3 bg-[#db4437] hover:bg-[#c53929] text-white font-medium rounded-lg transition shadow-lg shadow-red-900/20">使用 Google 帳號登入</a>
+            <a href="/login/discord" class="block w-full text-center py-3 bg-[#5865F2] hover:bg-[#4752C4] text-white font-medium rounded-lg transition shadow-lg shadow-blue-900/20">使用 Discord 帳號登入</a>
         </div>
     </body>
     </html>
@@ -96,53 +98,60 @@ def login_password():
         session["password_verified"] = True
         session["authenticated"] = True
         return redirect(url_for("admin_page"))
-    return "密碼錯誤，請返回重新輸入", 403
+    return "密碼錯誤 請返回重新輸入", 403
 
-@app.route('/login/google')
-def login_google():
-    if not GOOGLE_CLIENT_ID:
-        return "環境變數未配置 GOOGLE_CLIENT_ID，無法使用 Google 登入。", 400
-    redirect_uri = url_for("login_google_callback", _external=True)
-    google_provider_url = (
-        f"https://accounts.google.com/o/oauth2/v2/auth?"
-        f"response_type=code&client_id={GOOGLE_CLIENT_ID}&"
-        f"redirect_uri={redirect_uri}&scope=openid%20email%20profile"
+@app.route('/login/discord')
+def login_discord():
+    if not DISCORD_CLIENT_ID:
+        return "環境變數未配置 DISCORD_CLIENT_ID 無法使用 Discord 登入。", 400
+    redirect_uri = url_for("login_discord_callback", _external=True)
+    discord_provider_url = (
+        f"https://discord.com/oauth2/authorize?"
+        f"client_id={DISCORD_CLIENT_ID}&"
+        f"redirect_uri={redirect_uri}&"
+        f"response_type=code&scope=identify"
     )
-    return redirect(google_provider_url)
+    return redirect(discord_provider_url)
 
-@app.route('/login/google/callback')
-def login_google_callback():
+@app.route('/login/discord/callback')
+def login_discord_callback():
     code = request.args.get("code")
     if not code:
-        return "授權失敗，未能從 Google 取得 Code", 400
+        return "授權失敗 未能從 Discord 取得 Code", 400
 
-    redirect_uri = url_for("login_google_callback", _external=True)
-    token_url = "https://oauth2.googleapis.com/token"
+    redirect_uri = url_for("login_discord_callback", _external=True)
+    token_url = "https://discord.com/api/v10/oauth2/token"
     token_data = {
+        "client_id": DISCORD_CLIENT_ID,
+        "client_secret": DISCORD_CLIENT_SECRET,
+        "grant_type": "authorization_code",
         "code": code,
-        "client_id": GOOGLE_CLIENT_ID,
-        "client_secret": GOOGLE_CLIENT_SECRET,
-        "redirect_uri": redirect_uri,
-        "grant_type": "authorization_code"
+        "redirect_uri": redirect_uri
+    }
+    token_headers = {
+        "Content-Type": "application/x-www-form-urlencoded"
     }
     
     try:
-        token_res = requests.post(token_url, data=token_data).json()
+        token_res = requests.post(token_url, data=token_data, headers=token_headers).json()
         access_token = token_res.get("access_token")
         
+        if not access_token:
+            return f"換取 Token 失敗，請確認 Client Secret 是否正確設定。", 400
+        
         user_info_res = requests.get(
-            "https://www.googleapis.com/oauth2/v2/userinfo",
+            "https://discord.com/api/v10/users/@me",
             headers={"Authorization": f"Bearer {access_token}"}
         ).json()
         
         session["authenticated"] = True
         session["password_verified"] = True  
-        session["user_email"] = user_info_res.get("email")
-        add_log(f"[安全] 使用者 {session['user_email']} 透過 Google 登入成功。")
+        session["discord_user"] = user_info_res.get("username")
+        add_log(f"[安全] 使用者 {session['discord_user']} 透過 Discord 登入成功。")
         
         return redirect(url_for("admin_page"))
     except Exception as e:
-        return f"Google 驗證流程出錯: {str(e)}", 500
+        return f"Discord 驗證流程出錯: {str(e)}", 500
 
 @app.route('/logout')
 def logout():
@@ -328,10 +337,12 @@ async def handle_join_voice(guild_id: int, channel_id: int):
     if not channel or not isinstance(channel, discord.VoiceChannel):
         return False, f"遠端控制失敗: 找不到目標語音頻道 (ID: {channel_id})"
     try:
+        # 已將遠端連線同步更新為自動拒聽與自動靜音
         if guild.voice_client:
             await guild.voice_client.move_to(channel)
+            await guild.change_voice_state(channel=channel, self_deaf=True, self_mute=True)
         else:
-            await channel.connect()
+            await channel.connect(self_deaf=True, self_mute=True)
         return True, f"系統提示: 成功調動機器人加入語音頻道 -> {guild.name} / {channel.name}"
     except Exception as e:
         return False, f"遠端控制失敗: 無法建立語音連接 ({str(e)})"
