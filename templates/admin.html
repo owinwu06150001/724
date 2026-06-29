@@ -1,347 +1,217 @@
-import os
-import asyncio
-import threading
-import requests
-from datetime import datetime
-import zoneinfo
-from flask import Flask, render_template, jsonify, request, session, redirect, url_for
-import discord
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>機器人管理控制台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+    </style>
+</head>
+<body class="bg-[#0f172a] text-slate-200 min-h-screen font-sans">
 
-app = Flask(__name__)
-# 固定安全金鑰，避免 Render 重啟導致 Session 憑證失效而彈出錯誤
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "seven24_stable_secret_key_production_fixed")
-
-bot = None
-_flask_started = False
-log_store = []
-
-# 完整保留效能監控數據結構
-bot_status = {"cpu": 0, "ram": 0}  
-
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123").strip()
-GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
-GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
-
-def add_log(message):
-    """產生台北時間戳記的系統日誌"""
-    try:
-        tz = zoneinfo.ZoneInfo("Asia/Taipei")
-        timestamp = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
-    except Exception:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    if message.startswith("[202"):
-        log_store.append(message)
-    else:
-        log_store.append(f"[{timestamp}] {message}")
-        
-    if len(log_store) > 100:  
-        log_store.pop(0)
-
-def login_required(f):
-    from functools import wraps
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not session.get("authenticated") or not session.get("password_verified"):
-            if request.path.startswith('/api/') or request.path.startswith('/get_') or request.path.startswith('/join_') or request.path.startswith('/leave_') or request.path.startswith('/send_'):
-                return jsonify({"success": False, "message": "認證已過期，請重新整理網頁登入。"}), 401
-            return redirect(url_for("login_page", next=request.url))
-        return f(*args, **kwargs)
-    return decorated_function
-
-# 初始化第一條日誌
-add_log("系統初始化成功，等待機器人連線...")
-
-# ==========================================
-# 認證與登入路由
-# ==========================================
-
-@app.route('/login', methods=['GET'])
-def login_page():
-    return '''
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>管理員認證</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <script src="https://cdn.tailwindcss.com"></script>
-    </head>
-    <body class="bg-[#0f172a] text-slate-200 flex items-center justify-center min-h-screen font-sans">
-        <div class="bg-[#1e293b] p-8 rounded-xl shadow-2xl border border-slate-700 w-full max-w-md mx-4">
-            <h2 class="text-2xl font-bold text-center mb-6 text-white border-b border-slate-700 pb-3">控制台安全驗證</h2>
-            <form action="/login/password" method="POST" class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-slate-400 mb-2">請輸入管理員金鑰</label>
-                    <input type="password" name="password" placeholder="請輸入密碼" class="w-full px-4 py-3 bg-[#0f172a] border border-slate-600 rounded-lg focus:outline-none focus:border-blue-500 text-white placeholder-slate-500 transition">
-                </div>
-                <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition shadow-lg shadow-blue-900/30">使用密碼登入</button>
-            </form>
-            <div class="relative flex py-5 items-center">
-                <div class="flex-grow border-t border-slate-700"></div>
-                <span class="flex-shrink mx-4 text-slate-500 text-sm">或</span>
-                <div class="flex-grow border-t border-slate-700"></div>
+    <header class="bg-[#1e293b] border-b border-slate-700 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-xl font-bold text-white tracking-wide">機器人管理控制台</h1>
+            <div class="flex gap-4">
+                <a href="/" class="text-slate-400 hover:text-white transition px-3 py-2 text-sm font-medium">返回監控面板</a>
+                <a href="/logout" class="bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition shadow-md">登出系統</a>
             </div>
-            <a href="/login/google" class="block w-full text-center py-3 bg-[#db4437] hover:bg-[#c53929] text-white font-medium rounded-lg transition shadow-lg shadow-red-900/20">使用 Google 帳號登入</a>
         </div>
-    </body>
-    </html>
-    '''
+    </header>
 
-@app.route('/login/password', methods=['POST'])
-def login_password():
-    input_password = request.form.get("password")
-    if input_password == ADMIN_PASSWORD:
-        session["password_verified"] = True
-        session["authenticated"] = True
-        return redirect(url_for("admin_page"))
-    return "密碼錯誤，請返回重新輸入", 403
-
-@app.route('/login/google')
-def login_google():
-    if not GOOGLE_CLIENT_ID:
-        return "環境變數未配置 GOOGLE_CLIENT_ID，無法使用 Google 登入。", 400
-    redirect_uri = url_for("login_google_callback", _external=True)
-    google_provider_url = (
-        f"https://accounts.google.com/o/oauth2/v2/auth?"
-        f"response_type=code&client_id={GOOGLE_CLIENT_ID}&"
-        f"redirect_uri={redirect_uri}&scope=openid%20email%20profile"
-    )
-    return redirect(google_provider_url)
-
-@app.route('/login/google/callback')
-def login_google_callback():
-    code = request.args.get("code")
-    if not code:
-        return "授權失敗，未能從 Google 取得 Code", 400
-
-    redirect_uri = url_for("login_google_callback", _external=True)
-    token_url = "https://oauth2.googleapis.com/token"
-    token_data = {
-        "code": code,
-        "client_id": GOOGLE_CLIENT_ID,
-        "client_secret": GOOGLE_CLIENT_SECRET,
-        "redirect_uri": redirect_uri,
-        "grant_type": "authorization_code"
-    }
-    
-    try:
-        token_res = requests.post(token_url, data=token_data).json()
-        access_token = token_res.get("access_token")
+    <main class="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
         
-        user_info_res = requests.get(
-            "https://www.googleapis.com/oauth2/v2/userinfo",
-            headers={"Authorization": f"Bearer {access_token}"}
-        ).json()
-        
-        session["authenticated"] = True
-        session["password_verified"] = True  
-        session["user_email"] = user_info_res.get("email")
-        add_log(f"[安全] 使用者 {session['user_email']} 透過 Google 登入成功。")
-        
-        return redirect(url_for("admin_page"))
-    except Exception as e:
-        return f"Google 驗證流程出錯: {str(e)}", 500
+        <div class="space-y-6">
+            
+            <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg">
+                <h2 class="text-lg font-semibold text-white mb-4 border-b border-slate-700 pb-2">伺服器訊息廣播</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1">選擇目標伺服器</label>
+                        <select id="bc-guild" onchange="loadTextChannels()" class="w-full bg-[#0f172a] border border-slate-600 text-white rounded px-3 py-2 focus:outline-none focus:border-blue-500">
+                            <option value="">請先選擇伺服器</option>
+                            {% for guild in guilds %}
+                            <option value="{{ guild.id }}">{{ guild.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1">選擇文字頻道</label>
+                        <select id="bc-channel" class="w-full bg-[#0f172a] border border-slate-600 text-white rounded px-3 py-2 focus:outline-none focus:border-blue-500">
+                            <option value="">-- 尚未載入頻道 --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1">廣播內容</label>
+                        <textarea id="bc-message" rows="3" class="w-full bg-[#0f172a] border border-slate-600 text-white rounded px-3 py-2 focus:outline-none focus:border-blue-500 placeholder-slate-500" placeholder="輸入要發送的訊息..."></textarea>
+                    </div>
+                    <button onclick="sendBroadcast()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded transition shadow-md">發送廣播訊息</button>
+                </div>
+            </div>
 
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for("login_page"))
+            <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg">
+                <h2 class="text-lg font-semibold text-white mb-4 border-b border-slate-700 pb-2">語音頻道遠端控制</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1">選擇目標伺服器</label>
+                        <select id="vc-guild" onchange="loadVoiceChannels()" class="w-full bg-[#0f172a] border border-slate-600 text-white rounded px-3 py-2 focus:outline-none focus:border-blue-500">
+                            <option value="">請先選擇伺服器</option>
+                            {% for guild in guilds %}
+                            <option value="{{ guild.id }}">{{ guild.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1">選擇語音頻道</label>
+                        <select id="vc-channel" class="w-full bg-[#0f172a] border border-slate-600 text-white rounded px-3 py-2 focus:outline-none focus:border-blue-500">
+                            <option value="">尚未載入語音頻道</option>
+                        </select>
+                    </div>
+                    <div class="flex gap-4">
+                        <button onclick="joinVoice()" class="w-1/2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 rounded transition shadow-md">強制加入語音</button>
+                        <button onclick="leaveVoice()" class="w-1/2 bg-slate-600 hover:bg-slate-700 text-white font-medium py-2 rounded transition shadow-md">強制退出語音</button>
+                    </div>
+                </div>
+            </div>
 
-# ==========================================
-# 核心資料與 API 路由
-# ==========================================
+        </div>
 
-@app.route('/')
-def index_page():
-    log_content = "\n".join(log_store)
-    return render_template('index.html', log_content=log_content)
+        <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg flex flex-col h-full min-h-[500px]">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+                <h3 class="text-md font-semibold text-slate-300">操作日誌</h3>
+                <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded">即時更新</span>
+            </div>
+            <div id="log-container" class="bg-[#0f172a] p-4 rounded-lg font-mono text-xs text-emerald-400 overflow-y-auto flex-grow leading-relaxed whitespace-pre-wrap border border-slate-800">
+                {{ log_content }}
+            </div>
+        </div>
 
-@app.route('/status')
-def get_status():
-    """回傳完整的 5 大狀態核心指標"""
-    if bot is None or not bot.is_ready():
-        return jsonify({
-            "bot_online": False, 
-            "bot_name": "離線 / 啟動中", 
-            "guilds_count": 0,
-            "cpu": 0,
-            "ram": 0
-        })
-    
-    # 嘗試動態獲取當前環境的資源損耗（若無環境變數，維持預設隨機模擬或 0）
-    import random
-    current_cpu = bot_status.get("cpu", 0) if bot_status.get("cpu", 0) != 0 else round(random.uniform(0.5, 3.5), 1)
-    current_ram = bot_status.get("ram", 0) if bot_status.get("ram", 0) != 0 else round(random.uniform(45.0, 65.0), 1)
+    </main>
 
-    return jsonify({
-        "bot_online": True,
-        "bot_name": bot.user.name if bot.user else "未知用戶",
-        "guilds_count": len(bot.guilds),
-        "cpu": current_cpu,
-        "ram": current_ram
-    })
+    <script>
+        // 動態載入文字頻道
+        async function loadTextChannels() {
+            const guildId = document.getElementById('bc-guild').value;
+            const channelSelect = document.getElementById('bc-channel');
+            channelSelect.innerHTML = '<option value="">讀取中...</option>';
+            if (!guildId) {
+                channelSelect.innerHTML = '<option value="">請先選擇伺服器</option>';
+                return;
+            }
+            try {
+                const res = await fetch(`/get_channels/${guildId}`);
+                const channels = await res.json();
+                channelSelect.innerHTML = channels.length ? '' : '<option value="">此伺服器無文字頻道</option>';
+                channels.forEach(ch => {
+                    const opt = document.createElement('option');
+                    opt.value = ch.id;
+                    opt.textContent = ch.name;
+                    channelSelect.appendChild(opt);
+                });
+            } catch {
+                channelSelect.innerHTML = '<option value="">載入失敗</option>';
+            }
+        }
 
-@app.route('/admin')
-@login_required
-def admin_page():
-    if bot is None or not bot.is_ready():
-        guilds_data = []
-    else:
-        guilds_data = [{"id": str(g.id), "name": g.name} for g in bot.guilds]
-    log_content = "\n".join(log_store)
-    return render_template('admin.html', guilds=guilds_data, log_content=log_content)
+        // 動態載入語音頻道
+        async function loadVoiceChannels() {
+            const guildId = document.getElementById('vc-guild').value;
+            const channelSelect = document.getElementById('vc-channel');
+            channelSelect.innerHTML = '<option value="">讀取中...</option>';
+            if (!guildId) {
+                channelSelect.innerHTML = '<option value="">請先選擇伺服器</option>';
+                return;
+            }
+            try {
+                const res = await fetch(`/get_voice_channels/${guildId}`);
+                const channels = await res.json();
+                channelSelect.innerHTML = channels.length ? '' : '<option value="">此伺服器無語音頻道</option>';
+                channels.forEach(ch => {
+                    const opt = document.createElement('option');
+                    opt.value = ch.id;
+                    opt.textContent = ch.name;
+                    channelSelect.appendChild(opt);
+                });
+            } catch {
+                channelSelect.innerHTML = '<option value="">載入失敗</option>';
+            }
+        }
 
-@app.route('/api/logs')
-def get_logs_api():
-    return jsonify({"logs": log_store})
+        // 發送廣播
+        async function sendBroadcast() {
+            const guildId = document.getElementById('bc-guild').value;
+            const channelId = document.getElementById('bc-channel').value;
+            const message = document.getElementById('bc-message').value;
+            if (!guildId || !channelId || !message) {
+                alert("請完整選擇伺服器 頻道  並輸入訊息內容。");
+                return;
+            }
+            const res = await fetch('/send_broadcast', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ guild_id: guildId, channel_id: channelId, message: message })
+            });
+            const data = await res.json();
+            if (!data.success) alert("廣播失敗: " + data.message);
+            else document.getElementById('bc-message').value = ""; // 清空輸入框
+            updateLogs();
+        }
 
-@app.route('/get_channels/<guild_id>')
-@login_required
-def get_channels(guild_id):
-    if bot is None or not bot.is_ready():
-        return jsonify([])
-    try:
-        guild = bot.get_guild(int(guild_id))
-        if not guild:
-            return jsonify([])
-        channels = [{"id": str(ch.id), "name": ch.name} for ch in guild.text_channels]
-        return jsonify(channels)
-    except Exception:
-        return jsonify([])
+        // 加入語音
+        async function joinVoice() {
+            const guildId = document.getElementById('vc-guild').value;
+            const channelId = document.getElementById('vc-channel').value;
+            if (!guildId || !channelId) {
+                alert("請選擇目標伺服器與語音頻道。");
+                return;
+            }
+            const res = await fetch('/join_voice', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ guild_id: guildId, channel_id: channelId })
+            });
+            const data = await res.json();
+            if (!data.success) alert("加入失敗: " + data.message);
+            updateLogs();
+        }
 
-@app.route('/get_voice_channels/<guild_id>')
-@login_required
-def get_voice_channels(guild_id):
-    if bot is None or not bot.is_ready():
-        return jsonify([])
-    try:
-        guild = bot.get_guild(int(guild_id))
-        if not guild:
-            return jsonify([])
-        voice_channels = [{"id": str(ch.id), "name": ch.name} for ch in guild.voice_channels]
-        return jsonify(voice_channels)
-    except Exception:
-        return jsonify([])
+        // 退出語音
+        async function leaveVoice() {
+            const guildId = document.getElementById('vc-guild').value;
+            if (!guildId) {
+                alert("請選擇要退出的伺服器。");
+                return;
+            }
+            const res = await fetch('/leave_voice', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ guild_id: guildId })
+            });
+            const data = await res.json();
+            if (!data.success) alert("退出失敗: " + data.message);
+            updateLogs();
+        }
 
-@app.route('/join_voice', methods=['POST'])
-@login_required
-def join_voice():
-    if bot is None:
-        return jsonify({"success": False, "message": "遠端控制失敗: 機器人尚未初始化"})
-    data = request.get_json() or {}
-    guild_id = data.get('guild_id')
-    channel_id = data.get('channel_id')
-    try:
-        future = asyncio.run_coroutine_threadsafe(
-            handle_join_voice(int(guild_id), int(channel_id)), bot.loop
-        )
-        success, msg = future.result(timeout=10)
-        add_log(msg)
-        return jsonify({"success": success, "message": msg})
-    except Exception as e:
-        err_msg = f"遠端控制失敗: 執行異常 ({str(e)})"
-        add_log(err_msg)
-        return jsonify({"success": False, "message": err_msg})
+        // 定時更新日誌
+        function updateLogs() {
+            fetch('/api/logs')
+                .then(res => res.json())
+                .then(data => {
+                    const container = document.getElementById('log-container');
+                    const isAtBottom = container.scrollHeight - container.clientHeight <= container.scrollTop + 30;
+                    container.textContent = data.logs.join('\n');
+                    if (isAtBottom) {
+                        container.scrollTop = container.scrollHeight;
+                    }
+                })
+                .catch(() => console.log("日誌載入中斷"));
+        }
 
-@app.route('/leave_voice', methods=['POST'])
-@login_required
-def leave_voice():
-    data = request.get_json() or {}
-    guild_id = data.get('guild_id')
-    try:
-        future = asyncio.run_coroutine_threadsafe(
-            handle_leave_voice(int(guild_id)), bot.loop
-        )
-        success, msg = future.result(timeout=10)
-        add_log(msg)
-        return jsonify({"success": success, "message": msg})
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)})
-
-@app.route('/send_broadcast', methods=['POST'])
-@login_required
-def send_broadcast():
-    if bot is None:
-        return jsonify({"success": False, "message": "廣播失敗: 機器人尚未初始化"})
-    data = request.get_json() or {}
-    guild_id = data.get('guild_id')
-    channel_id = data.get('channel_id')
-    message_text = data.get('message')
-    try:
-        future = asyncio.run_coroutine_threadsafe(
-            handle_send_message(int(guild_id), int(channel_id), message_text), bot.loop
-        )
-        success, msg = future.result(timeout=10)
-        add_log(msg)
-        return jsonify({"success": success, "message": msg})
-    except Exception as e:
-        err_msg = f"文字廣播失敗: 執行異常 ({str(e)})"
-        add_log(err_msg)
-        return jsonify({"success": False, "message": err_msg})
-
-# ==========================================
-# 機器人對接核心與異步任務
-# ==========================================
-
-def set_bot(target_bot):
-    global bot
-    bot = target_bot
-    print("[系統] 收到 bot.py 傳入的 Bot 實例，對接成功。")
-    
-    @bot.event
-    async def on_ready():
-        add_log(f"[系統] 機器人已成功連線。登入身分: {bot.user.name} (ID: {bot.user.id})")
-
-def run_flask():
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
-
-def keep_alive():
-    global _flask_started
-    if _flask_started:
-        return
-    _flask_started = True
-    flask_thread = threading.Thread(target=run_flask, daemon=True)
-    flask_thread.start()
-    print("[系統] Web 伺服器已在背景執行緒啟動。")
-
-async def handle_join_voice(guild_id: int, channel_id: int):
-    guild = bot.get_guild(guild_id)
-    if not guild:
-        return False, f"遠端控制失敗: 找不到目標伺服器 (ID: {guild_id})"
-    channel = guild.get_channel(channel_id)
-    if not channel or not isinstance(channel, discord.VoiceChannel):
-        return False, f"遠端控制失敗: 找不到目標語音頻道 (ID: {channel_id})"
-    try:
-        if guild.voice_client:
-            await guild.voice_client.move_to(channel)
-        else:
-            await channel.connect()
-        return True, f"系統提示: 成功調動機器人加入語音頻道 -> {guild.name} / {channel.name}"
-    except Exception as e:
-        return False, f"遠端控制失敗: 無法建立語音連接 ({str(e)})"
-
-async def handle_leave_voice(guild_id: int):
-    guild = bot.get_guild(guild_id)
-    if not guild:
-        return False, "找不到指定的伺服器"
-    if guild.voice_client:
-        try:
-            await guild.voice_client.disconnect()
-            return True, f"系統提示: 機器人已登出 [{guild.name}] 的語音頻道。"
-        except Exception as e:
-            return False, f"登出語音失敗: {str(e)}"
-    return False, "機器人目前未在該伺服器的語音頻道中"
-
-async def handle_send_message(guild_id: int, channel_id: int, text: str):
-    guild = bot.get_guild(guild_id)
-    if not guild:
-        return False, f"廣播失敗: 找不到目標伺服器 (ID: {guild_id})"
-    channel = guild.get_channel(channel_id)
-    if not channel or not isinstance(channel, discord.TextChannel):
-        return False, f"廣播失敗: 找不到或無權限存取文字頻道 (ID: {channel_id})"
-    try:
-        await channel.send(text)
-        return True, f"系統提示: 成功向 [{guild.name} / {channel.name}] 發送廣播訊息"
-    except Exception as e:
-        return False, f"廣播失敗: 訊息發送遺失 ({str(e)})"
+        setInterval(updateLogs, 3000);
+    </script>
+</body>
+</html>
