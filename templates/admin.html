@@ -62,16 +62,16 @@ def login_page():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>管理員</title>
+        <title>管理員認證</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <script src="https://cdn.tailwindcss.com"></script>
     </head>
     <body class="bg-[#0f172a] text-slate-200 flex items-center justify-center min-h-screen font-sans">
         <div class="bg-[#1e293b] p-8 rounded-xl shadow-2xl border border-slate-700 w-full max-w-md mx-4">
-            <h2 class="text-2xl font-bold text-center mb-6 text-white border-b border-slate-700 pb-3">密碼系統</h2>
+            <h2 class="text-2xl font-bold text-center mb-6 text-white border-b border-slate-700 pb-3">控制台安全驗證</h2>
             <form action="/login/password" method="POST" class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-slate-400 mb-2">請輸入密碼</label>
+                    <label class="block text-sm font-medium text-slate-400 mb-2">請輸入管理員金鑰</label>
                     <input type="password" name="password" placeholder="請輸入密碼" class="w-full px-4 py-3 bg-[#0f172a] border border-slate-600 rounded-lg focus:outline-none focus:border-blue-500 text-white placeholder-slate-500 transition">
                 </div>
                 <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition shadow-lg shadow-blue-900/30">使用密碼登入</button>
@@ -227,7 +227,7 @@ def get_voice_channels(guild_id):
 @login_required
 def join_voice():
     if bot is None:
-        return jsonify({"success": False, "message": "控制失敗: 機器人尚未初始化"})
+        return jsonify({"success": False, "message": "遠端控制失敗: 機器人尚未初始化"})
     data = request.get_json() or {}
     guild_id = data.get('guild_id')
     channel_id = data.get('channel_id')
@@ -239,7 +239,7 @@ def join_voice():
         add_log(msg)
         return jsonify({"success": success, "message": msg})
     except Exception as e:
-        err_msg = f"控制失敗: 執行異常 ({str(e)})"
+        err_msg = f"遠端控制失敗: 執行異常 ({str(e)})"
         add_log(err_msg)
         return jsonify({"success": False, "message": err_msg})
 
@@ -262,7 +262,7 @@ def leave_voice():
 @login_required
 def send_broadcast():
     if bot is None:
-        return jsonify({"success": False, "message": "失敗: 機器人尚未初始化"})
+        return jsonify({"success": False, "message": "廣播失敗: 機器人尚未初始化"})
     data = request.get_json() or {}
     guild_id = data.get('guild_id')
     channel_id = data.get('channel_id')
@@ -308,10 +308,10 @@ def keep_alive():
 async def handle_join_voice(guild_id: int, channel_id: int):
     guild = bot.get_guild(guild_id)
     if not guild:
-        return False, f"控制失敗: 找不到目標伺服器 (ID: {guild_id})"
+        return False, f"遠端控制失敗: 找不到目標伺服器 (ID: {guild_id})"
     channel = guild.get_channel(channel_id)
     if not channel or not isinstance(channel, discord.VoiceChannel):
-        return False, f"控制失敗: 找不到目標語音頻道 (ID: {channel_id})"
+        return False, f"遠端控制失敗: 找不到目標語音頻道 (ID: {channel_id})"
     try:
         if guild.voice_client:
             await guild.voice_client.move_to(channel)
