@@ -3,128 +3,105 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>機器人核心控制台 - 狀態監控</title>
+    <title>機器人狀態即時監控面板</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body {
-            background-color: #121824;
-            color: #e2e8f0;
-            font-family: 'Segoe UI', Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-        }
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid #1e293b;
-            padding-bottom: 15px;
-            margin-bottom: 25px;
-        }
-        h1 { margin: 0; color: #38bdf8; font-size: 24px; }
-        .btn {
-            background-color: #2563eb;
-            color: white;
-            text-decoration: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            font-weight: bold;
-            transition: background 0.2s;
-        }
-        .btn:hover { background-color: #1d4ed8; }
-        .status-card {
-            background-color: #1e293b;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 25px;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
-        }
-        .status-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-        }
-        .status-item {
-            background-color: #0f172a;
-            padding: 15px;
-            border-radius: 6px;
-            text-align: center;
-        }
-        .status-label { font-size: 14px; color: #94a3b8; margin-bottom: 5px; }
-        .status-value { font-size: 18px; font-weight: bold; color: #f1f5f9; }
-        .terminal {
-            background-color: #050b14;
-            border: 1px solid #1e293b;
-            border-radius: 6px;
-            padding: 15px;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 14px;
-            color: #4ade80;
-            line-height: 1.6;
-            height: 350px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
     </style>
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>機器人狀態即時監控面板</h1>
-            <a href="/admin" class="btn">進入管理後台</a>
-        </div>
+<body class="bg-[#0f172a] text-slate-200 min-h-screen font-sans">
 
-        <div class="status-card">
-            <div class="status-grid">
-                <div class="status-item">
-                    <div class="status-label">機器人連線狀態</div>
-                    <div class="status-value" id="bot-status">連線檢索中...</div>
-                </div>
-                <div class="status-item">
-                    <div class="status-label">當前帳號名稱</div>
-                    <div class="status-value" id="bot-name">載入中...</div>
-                </div>
-                <div class="status-item">
-                    <div class="status-label">已進駐伺服器總數</div>
-                    <div class="status-value" id="bot-guilds">0 個</div>
-                </div>
+    <header class="bg-[#1e293b] border-b border-slate-700 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-5 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="h-3 w-3 rounded-full bg-emerald-500 animate-pulse"></div>
+                <h1 class="text-xl font-bold text-white tracking-wide">機器人狀態即時監控面板</h1>
+            </div>
+            <a href="/admin" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-5 py-2 rounded-lg transition shadow-md focus:outline-none">
+                進入管理後台
+            </a>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-8 space-y-8">
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+            <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg text-center flex flex-col justify-center min-h-[120px]">
+                <p class="text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">機器人連線狀態</p>
+                <p id="bot-status-text" class="text-lg font-bold text-slate-500">檢測中...</p>
+            </div>
+            <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg text-center flex flex-col justify-center min-h-[120px]">
+                <p class="text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">當前帳號名稱</p>
+                <p id="bot-name-text" class="text-lg font-bold text-white truncate">讀取中...</p>
+            </div>
+            <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg text-center flex flex-col justify-center min-h-[120px]">
+                <p class="text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">已進駐伺服器總數</p>
+                <p id="bot-guilds-text" class="text-xl font-bold text-blue-400">0 個</p>
+            </div>
+            <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg text-center flex flex-col justify-center min-h-[120px]">
+                <p class="text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">中央處理器 (CPU)</p>
+                <p id="bot-cpu-text" class="text-xl font-bold text-cyan-400">0 %</p>
+            </div>
+            <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg text-center flex flex-col justify-center min-h-[120px]">
+                <p class="text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">記憶體 (RAM)</p>
+                <p id="bot-ram-text" class="text-xl font-bold text-purple-400">0 MB</p>
             </div>
         </div>
 
-        <h3>系統即時操作日誌</h3>
-        <div class="terminal" id="logs-container">{{ log_content|safe }}</div>
-    </div>
+        <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg flex flex-col">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+                <h3 class="text-md font-semibold text-slate-300 tracking-wider">系統即時操作日誌</h3>
+                <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded">自動更新 (台北時間)</span>
+            </div>
+            <div id="log-container" class="bg-[#0f172a] p-4 rounded-lg font-mono text-xs text-emerald-400 overflow-y-auto h-[450px] leading-relaxed whitespace-pre-wrap border border-slate-800">
+                {{ log_content }}
+            </div>
+        </div>
+    </main>
 
     <script>
-        // 定時向後端拉取最新狀態資訊
-        function updateStatus() {
+        // 即時同步機器人狀態與五大指標資料
+        function updateSystemStatus() {
             fetch('/status')
                 .then(res => res.json())
                 .then(data => {
-                    const statusEl = document.getElementById('bot-status');
+                    const statusEl = document.getElementById('bot-status-text');
                     if (data.bot_online) {
-                        statusEl.textContent = '在線 (Online)';
-                        statusEl.style.color = '#4ade80';
+                        statusEl.textContent = "在線 (Online)";
+                        statusEl.className = "text-lg font-bold text-emerald-400";
                     } else {
-                        statusEl.textContent = '離線 (Offline)';
-                        statusEl.style.color = '#ef4444';
+                        statusEl.textContent = "離線 (Offline)";
+                        statusEl.className = "text-lg font-bold text-red-400";
                     }
-                    document.getElementById('bot-name').textContent = data.bot_name;
-                    document.getElementById('bot-guilds').textContent = data.guilds_count + ' 個';
+                    document.getElementById('bot-name-text').textContent = data.bot_name;
+                    document.getElementById('bot-guilds-text').textContent = data.guilds_count + " 個";
+                    document.getElementById('bot-cpu-text').textContent = data.cpu + " %";
+                    document.getElementById('bot-ram-text').textContent = data.ram + " MB";
                 })
-                .catch(err => console.error('無法取得狀態快取', err));
+                .catch(() => console.log("連線監控狀態同步失敗"));
         }
 
-        // 頁面載入後自動滾動日誌到最底端
-        const logBox = document.getElementById('logs-container');
-        logBox.scrollTop = logBox.scrollHeight;
+        // 定時同步台北時間日誌
+        function updateLogs() {
+            fetch('/api/logs')
+                .then(res => res.json())
+                .then(data => {
+                    const container = document.getElementById('log-container');
+                    const isAtBottom = container.scrollHeight - container.clientHeight <= container.scrollTop + 30;
+                    container.textContent = data.logs.join('\n');
+                    if (isAtBottom) {
+                        container.scrollTop = container.scrollHeight;
+                    }
+                })
+                .catch(() => console.log("日誌流載入中斷"));
+        }
 
-        // 每 5 秒自動重新整理狀態欄位
-        setInterval(updateStatus, 5000);
-        updateStatus();
+        // 頁面載入時先執行一次，隨後每 3 秒自動刷新
+        updateSystemStatus();
+        setInterval(updateSystemStatus, 3000);
+        setInterval(updateLogs, 3000);
     </script>
 </body>
 </html>
