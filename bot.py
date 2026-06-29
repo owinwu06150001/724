@@ -192,7 +192,7 @@ async def check_broadcast():
                         await guild.voice_client.move_to(channel)
                         server.add_log(f"遠端控制: 機器人已移動至語音頻道「{channel.name}」")
                     else:
-                        await channel.connect()
+                        await channel.connect(self_deafen=True, self_mute=True)
                         server.add_log(f"遠端控制: 成功加入語音頻道「{channel.name}」")
                 except Exception as e:
                     server.add_log(f"遠端控制失敗: 無法進入語音頻道，原因: {e}")
@@ -317,10 +317,9 @@ async def on_ready():
 
 @tree.command(name="加入", description="進入語音頻道掛機")
 async def join_vc(interaction: discord.Interaction, 頻道: discord.VoiceChannel = None):
-    voice_client = await channel.connect(self_deafen=True)
     頻道 = 頻道 or (interaction.user.voice.channel if interaction.user.voice else None)
     if not 頻道: return await interaction.response.send_message("請先進入頻道或指定頻道", ephemeral=True)
-    await 頻道.connect(self_deaf=True)
+    await 頻道.connect(self_deafen=True, self_mute=True)
     stay_channels[interaction.guild.id] = 頻道.id
     stay_since[interaction.guild.id] = time.time()
     await interaction.response.send_message(f"已連接至：{頻道.name}")
