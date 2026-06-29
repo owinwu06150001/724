@@ -40,7 +40,7 @@ welcome_channels = {}
 voice_log_channels = {} 
 start_time = datetime.datetime.now()
 status_toggle = True
-voice_client = await channel.connect(self_deafen=True)
+
 
 AUDIT_LOG_ACTIONS_CN = {
     "guild_update": "更新伺服器", "channel_create": "建立頻道", "channel_update": "更新頻道",
@@ -316,6 +316,7 @@ async def on_ready():
 
 @tree.command(name="加入", description="進入語音頻道掛機")
 async def join_vc(interaction: discord.Interaction, 頻道: discord.VoiceChannel = None):
+    voice_client = await channel.connect(self_deafen=True)
     頻道 = 頻道 or (interaction.user.voice.channel if interaction.user.voice else None)
     if not 頻道: return await interaction.response.send_message("請先進入頻道或指定頻道", ephemeral=True)
     await 頻道.connect(self_deaf=True)
