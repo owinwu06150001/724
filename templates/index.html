@@ -141,13 +141,22 @@
                         container.scrollTop = container.scrollHeight;
                     }
                 })
-                .catch(() => console.log("日誌流載入中斷"));
+                .catch(() => console.log("日誌載入中斷"));
         }
 
-        // 頁面載入時先執行一次，隨後每 3 秒自動刷新
-        updateSystemStatus();
-        setInterval(updateSystemStatus, 3000);
-        setInterval(updateLogs, 3000);
+        // 頁面初始化與定時循環排程
+        document.addEventListener('DOMContentLoaded', () => {
+            // 讓初始載入的日誌自動捲動至最底部
+            const container = document.getElementById('log-container');
+            if (container) {
+                container.scrollTop = container.scrollHeight;
+            }
+            
+            // 執行同步與建立定時器（每 3 秒刷新一次）
+            updateSystemStatus();
+            setInterval(updateSystemStatus, 3000);
+            setInterval(updateLogs, 3000);
+        });
     </script>
 </body>
 </html>
