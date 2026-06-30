@@ -11,21 +11,21 @@
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
     </style>
 </head>
-<body class="bg-[#0f172a] text-slate-200 min-h-screen font-sans">
+<body class="bg-[#0f172a] text-slate-200 min-h-screen font-sans flex flex-col">
 
-    <header class="bg-[#1e293b] border-b border-slate-700 shadow-md">
+    <header class="bg-[#1e293b] border-b border-slate-700 shadow-md flex-shrink-0">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 class="text-xl font-bold text-white tracking-wide">機器人控制台</h1>
+            <h1 class="text-xl font-bold text-white tracking-wide">機器人管理控制台</h1>
             <div class="flex gap-4">
-                <a href="/" class="text-slate-400 hover:text-white transition px-3 py-2 text-sm font-medium">返回監控面板</a>
+                <a href="/dashboard" class="text-slate-400 hover:text-white transition px-3 py-2 text-sm font-medium">返回監控面板</a>
                 <a href="/logout" class="bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition shadow-md">登出系統</a>
             </div>
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <main class="max-w-7xl w-full mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-2 gap-8 flex-grow overflow-hidden">
         
-        <div class="space-y-6">
+        <div class="space-y-6 overflow-y-auto pr-1">
             
             <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg">
                 <h2 class="text-lg font-semibold text-white mb-4 border-b border-slate-700 pb-2">伺服器訊息廣播</h2>
@@ -42,20 +42,16 @@
                     <div>
                         <label class="block text-sm font-medium text-slate-400 mb-1">選擇文字頻道</label>
                         <select id="bc-channel" class="w-full bg-[#0f172a] border border-slate-600 text-white rounded px-3 py-2 focus:outline-none focus:border-blue-500">
-                            <option value=""> 尚未載入頻道 </option>
+                            <option value="">-- 尚未載入頻道 --</option>
                         </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-400 mb-1">廣播內容</label>
-                       <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg flex flex-col h-[600px] lg:h-[calc(100vh-160px)]">
-    <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
-        <h3 class="text-md font-semibold text-slate-300">操作日誌</h3>
-        <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded">即時更新</span>
-    </div>
-    <div id="log-container" class="bg-[#0f172a] p-4 rounded-lg font-mono text-xs text-emerald-400 overflow-y-auto flex-grow leading-relaxed whitespace-pre-wrap border border-slate-800">
-        {{ log_content }}
-    </div>
-</div>
+                        <textarea id="bc-message" rows="3" class="w-full bg-[#0f172a] border border-slate-600 text-white rounded px-3 py-2 focus:outline-none focus:border-blue-500 placeholder-slate-500" placeholder="輸入要發送的訊息..."></textarea>
+                    </div>
+                    <button onclick="sendBroadcast()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded transition shadow-md">發送廣播訊息</button>
+                </div>
+            </div>
 
             <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg">
                 <h2 class="text-lg font-semibold text-white mb-4 border-b border-slate-700 pb-2">語音頻道遠端控制</h2>
@@ -71,21 +67,28 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-400 mb-1">選擇語音頻道</label>
-                        <select id="vc-channel" class="w-full bg-[#0f172a] border border-slate-600 text-white rounded px-3 py-2 focus:outline-none focus:border-blue-500">
+                        <select id="vc-channel" onchange="loadVoiceChannelUsers()" class="w-full bg-[#0f172a] border border-slate-600 text-white rounded px-3 py-2 focus:outline-none focus:border-blue-500">
                             <option value="">尚未載入語音頻道</option>
                         </select>
                     </div>
-                    <div class="flex gap-4">
-                        <button onclick="joinVoice()" class="w-1/2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 rounded transition shadow-md">強制加入語音</button>
-                        <button onclick="leaveVoice()" class="w-1/2 bg-slate-600 hover:bg-slate-700 text-white font-medium py-2 rounded transition shadow-md">強制退出語音</button>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1">在線成員名單</label>
+                        <select id="vc-user" class="w-full bg-[#0f172a] border border-slate-600 text-white rounded px-3 py-2 focus:outline-none focus:border-blue-500">
+                            <option value="">請先選擇語音頻道</option>
+                        </select>
                     </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <button onclick="joinVoice()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 rounded transition shadow-md">強制加入語音</button>
+                        <button onclick="leaveVoice()" class="bg-slate-600 hover:bg-slate-700 text-white font-medium py-2 rounded transition shadow-md">強制退出語音</button>
+                    </div>
+                    <button onclick="kickVoiceUser()" class="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-2 rounded transition shadow-md">執行語音踢出操作</button>
                 </div>
             </div>
 
         </div>
 
-        <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg flex flex-col h-full min-h-[500px]">
-            <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+        <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg flex flex-col h-[600px] lg:h-[calc(100vh-160px)]">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2 flex-shrink-0">
                 <h3 class="text-md font-semibold text-slate-300">操作日誌</h3>
                 <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded">即時更新</span>
             </div>
@@ -125,7 +128,10 @@
         async function loadVoiceChannels() {
             const guildId = document.getElementById('vc-guild').value;
             const channelSelect = document.getElementById('vc-channel');
+            const userSelect = document.getElementById('vc-user');
             channelSelect.innerHTML = '<option value="">讀取中...</option>';
+            userSelect.innerHTML = '<option value="">請先選擇語音頻道</option>';
+            
             if (!guildId) {
                 channelSelect.innerHTML = '<option value="">請先選擇伺服器</option>';
                 return;
@@ -133,7 +139,7 @@
             try {
                 const res = await fetch(`/get_voice_channels/${guildId}`);
                 const channels = await res.json();
-                channelSelect.innerHTML = channels.length ? '' : '<option value="">此伺服器無語音頻道</option>';
+                channelSelect.innerHTML = channels.length ? '<option value="">-- 請選擇語音頻道 --</option>' : '<option value="">此伺服器無語音頻道</option>';
                 channels.forEach(ch => {
                     const opt = document.createElement('option');
                     opt.value = ch.id;
@@ -142,6 +148,38 @@
                 });
             } catch {
                 channelSelect.innerHTML = '<option value="">載入失敗</option>';
+            }
+        }
+
+        // 新增：根據選擇的語音頻道，動態偵測並載入頻道內的使用者
+        async function loadVoiceChannelUsers() {
+            const guildId = document.getElementById('vc-guild').value;
+            const channelId = document.getElementById('vc-channel').value;
+            const userSelect = document.getElementById('vc-user');
+            
+            if (!guildId || !channelId) {
+                userSelect.innerHTML = '<option value="">請先選擇語音頻道</option>';
+                return;
+            }
+            userSelect.innerHTML = '<option value="">正在偵測頻道內成員...</option>';
+            
+            try {
+                const res = await fetch(`/get_voice_users/${guildId}/${channelId}`);
+                const users = await res.json();
+                
+                if (users.length === 0) {
+                    userSelect.innerHTML = '<option value="">頻道內目前沒有人</option>';
+                } else {
+                    userSelect.innerHTML = '<option value="">-- 選擇要踢出的成員 (留空代表全員) --</option>';
+                    users.forEach(u => {
+                        const opt = document.createElement('option');
+                        opt.value = u.id;
+                        opt.textContent = u.name;
+                        userSelect.appendChild(opt);
+                    });
+                }
+            } catch {
+                userSelect.innerHTML = '<option value="">無法載入成員資料</option>';
             }
         }
 
@@ -161,7 +199,7 @@
             });
             const data = await res.json();
             if (!data.success) alert("廣播失敗: " + data.message);
-            else document.getElementById('bc-message').value = ""; // 清空輸入框
+            else document.getElementById('bc-message').value = "";
             updateLogs();
         }
 
@@ -200,6 +238,34 @@
             updateLogs();
         }
 
+        // 向後端發送踢出語音成員請求
+        async function kickVoiceUser() {
+            const guildId = document.getElementById('vc-guild').value;
+            const channelId = document.getElementById('vc-channel').value;
+            const userSelect = document.getElementById('vc-user');
+            const userId = userSelect.value;
+            
+            if (!guildId || !channelId) {
+                alert("請選擇目標伺服器與語音頻道。");
+                return;
+            }
+            
+            const res = await fetch('/kick_voice_user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ guild_id: guildId, channel_id: channelId, user_id: userId })
+            });
+            const data = await res.json();
+            if (!data.success) {
+                alert("操作失敗: " + data.message);
+            } else {
+                alert(userId ? "已將該用戶踢出語音頻道" : "已清空該語音頻道內的所有成員");
+                // 重新載入一次成員名單更新畫面
+                loadVoiceChannelUsers();
+            }
+            updateLogs();
+        }
+
         // 定時更新日誌
         function updateLogs() {
             fetch('/api/logs')
@@ -217,13 +283,10 @@
 
         // 網頁初始化生命週期管理
         document.addEventListener('DOMContentLoaded', () => {
-            // 讓初始透過 Jinja 渲染的日誌內容自動滾動到底部
             const container = document.getElementById('log-container');
             if (container) {
                 container.scrollTop = container.scrollHeight;
             }
-            
-            // 立即執行首次同步，並每隔 3 秒輪詢
             updateLogs();
             setInterval(updateLogs, 3000);
         });
