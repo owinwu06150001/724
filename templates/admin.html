@@ -25,7 +25,7 @@
 
     <main class="max-w-7xl w-full mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-2 gap-8 flex-grow overflow-hidden">
         
-        <div class="space-y-6 overflow-y-auto pr-1">
+        <div class="space-y-6 overflow-y-auto pr-2 h-[calc(100vh-160px)]">
             
             <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg">
                 <h2 class="text-lg font-semibold text-white mb-4 border-b border-slate-700 pb-2">伺服器訊息廣播</h2>
@@ -54,7 +54,7 @@
             </div>
 
             <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg">
-                <h2 class="text-lg font-semibold text-white mb-4 border-b border-slate-700 pb-2">語音頻道遠端控制</h2>
+                <h2 class="text-lg font-semibold text-white mb-4 border-b border-slate-700 pb-2">語音頻道遠端控制 (機器人)</h2>
                 <div class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-slate-400 mb-1">選擇目標伺服器</label>
@@ -67,27 +67,48 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-400 mb-1">選擇語音頻道</label>
-                        <select id="vc-channel" onchange="loadVoiceChannelUsers()" class="w-full bg-[#0f172a] border border-slate-600 text-white rounded px-3 py-2 focus:outline-none focus:border-blue-500">
+                        <select id="vc-channel" class="w-full bg-[#0f172a] border border-slate-600 text-white rounded px-3 py-2 focus:outline-none focus:border-blue-500">
                             <option value="">尚未載入語音頻道</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-400 mb-1">在線成員名單</label>
-                        <select id="vc-user" class="w-full bg-[#0f172a] border border-slate-600 text-white rounded px-3 py-2 focus:outline-none focus:border-blue-500">
-                            <option value="">請先選擇語音頻道</option>
                         </select>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <button onclick="joinVoice()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 rounded transition shadow-md">強制加入語音</button>
                         <button onclick="leaveVoice()" class="bg-slate-600 hover:bg-slate-700 text-white font-medium py-2 rounded transition shadow-md">強制退出語音</button>
                     </div>
-                    <button onclick="kickVoiceUser()" class="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-2 rounded transition shadow-md">執行語音踢出操作</button>
+                </div>
+            </div>
+
+            <div class="bg-[#1e293b] p-6 rounded-xl border border-red-900 shadow-lg">
+                <h2 class="text-lg font-semibold text-red-400 mb-4 border-b border-slate-700 pb-2">語音頻道成員管理 (踢人)</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1">選擇目標伺服器</label>
+                        <select id="kick-guild" onchange="loadKickVoiceChannels()" class="w-full bg-[#0f172a] border border-slate-600 text-white rounded px-3 py-2 focus:outline-none focus:border-red-500">
+                            <option value="">請先選擇伺服器</option>
+                            {% for guild in guilds %}
+                            <option value="{{ guild.id }}">{{ guild.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1">選擇目標語音頻道</label>
+                        <select id="kick-channel" onchange="loadKickVoiceUsers()" class="w-full bg-[#0f172a] border border-slate-600 text-white rounded px-3 py-2 focus:outline-none focus:border-red-500">
+                            <option value="">尚未載入語音頻道</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1">當前在線成員名單</label>
+                        <select id="kick-user" class="w-full bg-[#0f172a] border border-slate-600 text-white rounded px-3 py-2 focus:outline-none focus:border-red-500">
+                            <option value="">請先選擇語音頻道</option>
+                        </select>
+                    </div>
+                    <button onclick="executeKickUser()" class="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-2 rounded transition shadow-md font-bold">執行語音踢出操作</button>
                 </div>
             </div>
 
         </div>
 
-        <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg flex flex-col h-[600px] lg:h-[calc(100vh-160px)]">
+        <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg flex flex-col h-[calc(100vh-160px)]">
             <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2 flex-shrink-0">
                 <h3 class="text-md font-semibold text-slate-300">操作日誌</h3>
                 <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded">即時更新</span>
@@ -100,7 +121,7 @@
     </main>
 
     <script>
-        // 動態載入文字頻道
+        // 1. 廣播：動態載入文字頻道
         async function loadTextChannels() {
             const guildId = document.getElementById('bc-guild').value;
             const channelSelect = document.getElementById('bc-channel');
@@ -124,11 +145,35 @@
             }
         }
 
-        // 動態載入語音頻道
+        // 2. 機器人控制：動態載入語音頻道
         async function loadVoiceChannels() {
             const guildId = document.getElementById('vc-guild').value;
             const channelSelect = document.getElementById('vc-channel');
-            const userSelect = document.getElementById('vc-user');
+            channelSelect.innerHTML = '<option value="">讀取中...</option>';
+            if (!guildId) {
+                channelSelect.innerHTML = '<option value="">請先選擇伺服器</option>';
+                return;
+            }
+            try {
+                const res = await fetch(`/get_voice_channels/${guildId}`);
+                const channels = await res.json();
+                channelSelect.innerHTML = channels.length ? '<option value="">-- 請選擇語音頻道 --</option>' : '<option value="">此伺服器無語音頻道</option>';
+                channels.forEach(ch => {
+                    const opt = document.createElement('option');
+                    opt.value = ch.id;
+                    opt.textContent = ch.name;
+                    channelSelect.appendChild(opt);
+                });
+            } catch {
+                channelSelect.innerHTML = '<option value="">載入失敗</option>';
+            }
+        }
+
+        // 3. 踢人面板：動態載入語音頻道
+        async function loadKickVoiceChannels() {
+            const guildId = document.getElementById('kick-guild').value;
+            const channelSelect = document.getElementById('kick-channel');
+            const userSelect = document.getElementById('kick-user');
             channelSelect.innerHTML = '<option value="">讀取中...</option>';
             userSelect.innerHTML = '<option value="">請先選擇語音頻道</option>';
             
@@ -151,26 +196,27 @@
             }
         }
 
-        // 新增：根據選擇的語音頻道，動態偵測並載入頻道內的使用者
-        async function loadVoiceChannelUsers() {
-            const guildId = document.getElementById('vc-guild').value;
-            const channelId = document.getElementById('vc-channel').value;
-            const userSelect = document.getElementById('vc-user');
+        // 3. 踢人面板：動態載入該語音頻道內成員
+        async function loadKickVoiceUsers() {
+            const guildId = document.getElementById('kick-guild').value;
+            const channelId = document.getElementById('kick-channel').value;
+            const userSelect = document.getElementById('kick-user');
             
             if (!guildId || !channelId) {
                 userSelect.innerHTML = '<option value="">請先選擇語音頻道</option>';
                 return;
             }
-            userSelect.innerHTML = '<option value="">正在偵測頻道內成員...</option>';
+            userSelect.innerHTML = '<option value="">正在動態掃描頻道成員...</option>';
             
             try {
                 const res = await fetch(`/get_voice_users/${guildId}/${channelId}`);
+                if (!res.ok) throw new Error();
                 const users = await res.json();
                 
                 if (users.length === 0) {
-                    userSelect.innerHTML = '<option value="">頻道內目前沒有人</option>';
+                    userSelect.innerHTML = '<option value="">該頻道目前空無一人</option>';
                 } else {
-                    userSelect.innerHTML = '<option value="">-- 選擇要踢出的成員 (留空代表全員) --</option>';
+                    userSelect.innerHTML = '<option value="">-- 選擇特定成員 (留空代表清空頻道) --</option>';
                     users.forEach(u => {
                         const opt = document.createElement('option');
                         opt.value = u.id;
@@ -183,7 +229,7 @@
             }
         }
 
-        // 發送廣播
+        // 動作：發送廣播
         async function sendBroadcast() {
             const guildId = document.getElementById('bc-guild').value;
             const channelId = document.getElementById('bc-channel').value;
@@ -203,7 +249,7 @@
             updateLogs();
         }
 
-        // 加入語音
+        // 動作：機器人加入語音
         async function joinVoice() {
             const guildId = document.getElementById('vc-guild').value;
             const channelId = document.getElementById('vc-channel').value;
@@ -221,7 +267,7 @@
             updateLogs();
         }
 
-        // 退出語音
+        // 動作：機器人退出語音
         async function leaveVoice() {
             const guildId = document.getElementById('vc-guild').value;
             if (!guildId) {
@@ -238,11 +284,11 @@
             updateLogs();
         }
 
-        // 向後端發送踢出語音成員請求
-        async function kickVoiceUser() {
-            const guildId = document.getElementById('vc-guild').value;
-            const channelId = document.getElementById('vc-channel').value;
-            const userSelect = document.getElementById('vc-user');
+        // 動作：執行踢出成員
+        async function executeKickUser() {
+            const guildId = document.getElementById('kick-guild').value;
+            const channelId = document.getElementById('kick-channel').value;
+            const userSelect = document.getElementById('kick-user');
             const userId = userSelect.value;
             
             if (!guildId || !channelId) {
@@ -260,8 +306,7 @@
                 alert("操作失敗: " + data.message);
             } else {
                 alert(userId ? "已將該用戶踢出語音頻道" : "已清空該語音頻道內的所有成員");
-                // 重新載入一次成員名單更新畫面
-                loadVoiceChannelUsers();
+                loadKickVoiceUsers(); // 刷新成員名單
             }
             updateLogs();
         }
@@ -281,7 +326,6 @@
                 .catch(() => console.log("日誌載入中斷"));
         }
 
-        // 網頁初始化生命週期管理
         document.addEventListener('DOMContentLoaded', () => {
             const container = document.getElementById('log-container');
             if (container) {
