@@ -81,27 +81,27 @@ add_log("系統初始化成功，等待機器人連線...")
 
 @app.route('/')
 def landing_page():
-    """社群導向迎賓首頁"""
+    """首頁"""
     return '''
     <!DOCTYPE html>
     <html lang="zh-TW">
     <head>
-        <title>歡迎來到我們的社群</title>
+        <title>你好</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <script src="https://cdn.tailwindcss.com"></script>
     </head>
     <body class="bg-[#0f172a] text-slate-200 flex items-center justify-center min-h-screen font-sans">
         <div class="bg-[#1e293b] p-8 rounded-xl shadow-2xl border border-slate-700 w-full max-w-md mx-4 text-center">
-            <h1 class="text-3xl font-bold mb-2 text-white">歡迎光臨</h1>
+            <h1 class="text-3xl font-bold mb-2 text-white">你好</h1>
             <p class="text-sm text-slate-400 mb-8">請選擇您想前往的平台或進入控制台</p>
             
             <div class="space-y-4">
-                <a href="https://www.instagram.com/" target="_blank" class="block w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-medium rounded-lg transition shadow-lg shadow-pink-900/20">
-                    關注我們的 Instagram
+                <a href="https://www.instagram.com/_6yluo/?__pwa=1" target="_blank" class="block w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-medium rounded-lg transition shadow-lg shadow-pink-900/20">
+                    Instagram
                 </a>
                 
-                <a href="https://discord.gg/" target="_blank" class="block w-full py-3 bg-[#5865F2] hover:bg-[#4752C4] text-white font-medium rounded-lg transition shadow-lg shadow-blue-900/20">
+                <a href="https://discord.gg/ECN3TvqaGV" target="_blank" class="block w-full py-3 bg-[#5865F2] hover:bg-[#4752C4] text-white font-medium rounded-lg transition shadow-lg shadow-blue-900/20">
                     加入 Discord 伺服器
                 </a>
                 
@@ -126,17 +126,17 @@ def login_page():
     <!DOCTYPE html>
     <html lang="zh-TW">
     <head>
-        <title>管理員認證</title>
+        <title>密碼系統</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <script src="https://cdn.tailwindcss.com"></script>
     </head>
     <body class="bg-[#0f172a] text-slate-200 flex items-center justify-center min-h-screen font-sans">
         <div class="bg-[#1e293b] p-8 rounded-xl shadow-2xl border border-slate-700 w-full max-w-md mx-4">
-            <h2 class="text-2xl font-bold text-center mb-6 text-white border-b border-slate-700 pb-3">控制台安全驗證</h2>
+            <h2 class="text-2xl font-bold text-center mb-6 text-white border-b border-slate-700 pb-3">控制台密碼</h2>
             <form action="/login/password" method="POST" class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-slate-400 mb-2">請輸入管理員金鑰</label>
+                    <label class="block text-sm font-medium text-slate-400 mb-2">請輸入管理員密碼</label>
                     <input type="password" name="password" placeholder="請輸入密碼" class="w-full px-4 py-3 bg-[#0f172a] border border-slate-600 rounded-lg focus:outline-none focus:border-blue-500 text-white placeholder-slate-500 transition">
                 </div>
                 <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition shadow-lg shadow-blue-900/30">使用密碼登入</button>
