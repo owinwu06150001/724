@@ -311,24 +311,30 @@ def get_voice_channels(guild_id):
         return jsonify([])
 
 # --- 獲取指定語音頻道內的所有成員 ---
-@app.route('/get_voice_members/<guild_id>/<channel_id>')
-@login_required
-def get_voice_members(guild_id, channel_id):
-    if bot is None or not bot.is_ready():
-        return jsonify([])
+@app.route('/get_voice_users/<int:guild_id>/<int:channel_id>', methods=['GET'])
+async def get_voice_users(guild_id, channel_id):
     try:
-        guild = bot.get_guild(int(guild_id))
+        guild = bot.get_guild(guild_id)
         if not guild:
             return jsonify([])
-        channel = guild.get_channel(int(channel_id))
-        if not channel or not isinstance(channel, discord.VoiceChannel):
+            
+        channel = guild.get_channel(channel_id)
+        # 確保抓到的是語音頻道，且程式能讀取裡面的 members 屬性
+        if not channel or not hasattr(channel, 'members'):
             return jsonify([])
-        
-        # 撈出當前頻道內的所有成員資訊
-        members = [{"id": str(m.id), "name": m.display_name} for m in channel.members]
-        return jsonify(members)
-    except Exception:
-        return jsonify([])
+            
+        user_list = []
+        for member in channel.members:
+            if not member.bot: # 排除機器人本身，只抓真人成員
+                user_list.append({
+                    'id': str(member.id),
+                    'name': member.display_name # 抓取伺服器暱稱或有名稱
+                })
+                
+        return jsonify(user_list)
+    except Exception as e:
+        print(f"[系統出錯] 無法撈取語音頻道成員: {str(e)}")
+        return jsonify([]), 500
 
 @app.route('/join_voice', methods=['POST'])
 @login_required
