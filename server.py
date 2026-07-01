@@ -12,20 +12,19 @@ from flask import Flask, render_template, jsonify, request, session, redirect, u
 import discord
 
 app = Flask(__name__)
-# 固定安全金鑰，避免 Render 重啟導致 Session 憑證失效而彈出錯誤
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "seven24_stable_secret_key_production_fixed")
 
 bot = None
 _flask_started = False
 log_store = []
-broadcast_queue = []  # 提供給 bot.py 讀取的廣播佇列，避免背景任務崩潰
+broadcast_queue = []  
 
-# 完整保留效能監控數據結構
 bot_status = {"cpu": 0, "ram": 0}  
+# 新增：紀錄每個 guild 語音連線開始的時間戳記 { "guild_id_str": time.time() }
+voice_connected_start_times = {}
 
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123").strip()
 
-# 改為 Discord OAuth2 環境變數
 DISCORD_CLIENT_ID = os.environ.get("DISCORD_CLIENT_ID", "").strip()
 DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET", "").strip()
 DISCORD_REDIRECT_URI = os.environ.get("DISCORD_REDIRECT_URI", "https://python-discord-bot-ktty.onrender.com/login/discord/callback").strip()
@@ -49,7 +48,6 @@ def save_bot_state(state):
         pass
 
 def add_log(message):
-    """產生帶有台北時間戳記的系統日誌"""
     try:
         tz = zoneinfo.ZoneInfo("Asia/Taipei")
         timestamp = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
@@ -70,16 +68,14 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         if not session.get("authenticated") or not session.get("password_verified"):
             if request.path.startswith('/api/') or request.path.startswith('/get_') or request.path.startswith('/join_') or request.path.startswith('/leave_') or request.path.startswith('/send_') or request.path.startswith('/disconnect_'):
-                return jsonify({"success": False, "message": "認證已過期 請重新整理網頁登入。"}), 401
+                return jsonify({"success": False, "message": "認證已過期，請重新整理網頁登入。"}), 401
             return redirect(url_for("login_page", next=request.url))
         return f(*args, **kwargs)
     return decorated_function
 
-# 初始化第一條日誌
 add_log("系統初始化成功，等待機器人連線...")
 
 def get_google_ping():
-    """簡單測速伺服器到 Google 的延遲 (毫秒)"""
     try:
         start = time.perf_counter()
         requests.head("https://www.google.com", timeout=2)
@@ -246,7 +242,7 @@ def get_status():
     if bot is None or not bot.is_ready():
         return jsonify({
             "bot_online": False, 
-            "bot_name": "離線 / 啟動", 
+            "bot_name": "離線 / 啟動中", 
             "guilds_count": 0,
             "cpu": 0,
             "ram": 0,
@@ -256,22 +252,40 @@ def get_status():
         })
     
     current_cpu = bot_status.get("cpu", 0) if bot_status.get("cpu", 0) != 0 else round(random.uniform(35.0, 48.0), 1)
-    # 將 RAM 調整為 % 形式的隨機值或真實值
     current_ram = bot_status.get("ram", 0) if bot_status.get("ram", 0) != 0 else round(random.uniform(30.0, 55.0), 1)
     
-    # 抓取機器人延遲 (Ping)
     discord_ping = round(bot.latency * 1000)
     google_ping = get_google_ping()
 
     guilds_list = []
     for g in bot.guilds:
+        guild_id_str = str(g.id)
         in_voice = g.voice_client is not None and g.voice_client.is_connected()
+        
+        # 計算語音已連接時間長度
+        duration_str = "00:00:00"
+        if in_voice:
+            # 如果偵測到在語音內，但先前因為重啟等原因漏記時間，在此補上防呆
+            if guild_id_str not in voice_connected_start_times:
+                voice_connected_start_times[guild_id_str] = time.time()
+                
+            elapsed = int(time.time() - voice_connected_start_times[guild_id_str])
+            hours = elapsed // 3600
+            minutes = (elapsed % 3600) // 60
+            seconds = elapsed % 60
+            duration_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+        else:
+            # 不在語音中就移除記錄
+            if guild_id_str in voice_connected_start_times:
+                voice_connected_start_times.pop(guild_id_str, None)
+
         guilds_list.append({
-            "id": str(g.id),
+            "id": guild_id_str,
             "name": g.name,
             "member_count": g.member_count,
             "in_voice": in_voice,
-            "voice_channel": g.voice_client.channel.name if (in_voice and g.voice_client.channel) else "未加入"
+            "voice_channel": g.voice_client.channel.name if (in_voice and g.voice_client.channel) else "未加入",
+            "voice_duration": duration_str  # 傳送時間長度字串至前端
         })
 
     return jsonify({
@@ -456,6 +470,8 @@ def set_bot(target_bot):
                             await guild.change_voice_state(channel=channel, self_deaf=True, self_mute=True)
                         else:
                             await channel.connect(self_deaf=True, self_mute=True)
+                        # 恢復頻道時也重置時間
+                        voice_connected_start_times[guild_id_str] = time.time()
                         add_log(f"[系統] 重啟自動恢復語音頻道 -> {guild.name} / {channel.name}")
             except Exception as e:
                 add_log(f"[系統] 恢復語音頻道失敗 -> {str(e)}")
@@ -487,11 +503,14 @@ async def handle_join_voice(guild_id: int, channel_id: int):
         else:
             await channel.connect(self_deaf=True, self_mute=True)
             
+        # 核心：成功加入或切換頻道，記錄/重置當前連線起始時間
+        voice_connected_start_times[str(guild_id)] = time.time()
+            
         state = load_bot_state()
         state[str(guild_id)] = channel_id
         save_bot_state(state)
         
-        return True, f"系統提示: 成功調動機器人加入語音頻道 -> {guild.name} / {channel.name}"
+        return True, f"系統提示: 成功讓機器人加入語音頻道 -> {guild.name} / {channel.name}"
     except Exception as e:
         return False, f"遠端控制失敗: 無法建立語音連接 ({str(e)})"
 
@@ -502,6 +521,9 @@ async def handle_leave_voice(guild_id: int):
     if guild.voice_client:
         try:
             await guild.voice_client.disconnect()
+            
+            # 核心：退出語音後移除時間紀錄
+            voice_connected_start_times.pop(str(guild_id), None)
             
             state = load_bot_state()
             if str(guild_id) in state:
