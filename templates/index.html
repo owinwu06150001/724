@@ -27,7 +27,7 @@
 
     <main class="max-w-7xl mx-auto px-4 py-8 space-y-8">
         
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg text-center flex flex-col justify-center min-h-[120px]">
                 <p class="text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">機器人連線狀態</p>
                 <p id="bot-status-text" class="text-lg font-bold text-slate-500">檢測中...</p>
@@ -37,7 +37,7 @@
                 <p id="bot-name-text" class="text-lg font-bold text-white truncate">讀取中...</p>
             </div>
             <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg text-center flex flex-col justify-center min-h-[120px]">
-                <p class="text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">已進駐伺服器總數</p>
+                <p class="text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">已加入的伺服器總數</p>
                 <p id="bot-guilds-text" class="text-xl font-bold text-blue-400">0 個</p>
             </div>
             <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg text-center flex flex-col justify-center min-h-[120px]">
@@ -46,7 +46,15 @@
             </div>
             <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg text-center flex flex-col justify-center min-h-[120px]">
                 <p class="text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">記憶體 (RAM)</p>
-                <p id="bot-ram-text" class="text-xl font-bold text-purple-400">0 MB</p>
+                <p id="bot-ram-text" class="text-xl font-bold text-purple-400">0 %</p> 
+            </div>
+            <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg text-center flex flex-col justify-center min-h-[120px]">
+                <p class="text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">Discord 延遲</p>
+                <p id="bot-dc-ping-text" class="text-xl font-bold text-yellow-400">0 ms</p>
+            </div>
+            <div class="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg text-center flex flex-col justify-center min-h-[120px]">
+                <p class="text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">Google 延遲</p>
+                <p id="bot-google-ping-text" class="text-xl font-bold text-orange-400">0 ms</p>
             </div>
         </div>
 
@@ -82,12 +90,10 @@
     </main>
 
     <script>
-        // 即時同步機器人狀態與數據指標資料
         function updateSystemStatus() {
             fetch('/status')
                 .then(res => res.json())
                 .then(data => {
-                    // 更新 5 大卡片指標
                     const statusEl = document.getElementById('bot-status-text');
                     if (data.bot_online) {
                         statusEl.textContent = "在線 (Online)";
@@ -99,21 +105,23 @@
                     document.getElementById('bot-name-text').textContent = data.bot_name;
                     document.getElementById('bot-guilds-text').textContent = data.guilds_count + " 個";
                     document.getElementById('bot-cpu-text').textContent = data.cpu + " %";
-                    document.getElementById('bot-ram-text').textContent = data.ram + " MB";
+                    document.getElementById('bot-ram-text').textContent = data.ram + " %";
+                    document.getElementById('bot-dc-ping-text').textContent = (data.discord_ping >= 0 ? data.discord_ping : "--") + " ms";
+                    document.getElementById('bot-google-ping-text').textContent = (data.google_ping >= 0 ? data.google_ping : "--") + " ms";
 
-                    // 動態渲染伺服器名單、當前人數與語音頻道狀態
                     const guildsContainer = document.getElementById('guilds-list-container');
                     if (data.guilds && data.guilds.length > 0) {
                         let html = '';
                         data.guilds.forEach(g => {
+                            // 在此處將語音持續時間（g.voice_duration）串接在狀態後面
                             const voiceStatus = g.in_voice 
-                                ? `<span class="text-emerald-400 font-semibold">監聽中 (${g.voice_channel})</span>` 
+                                ? `<span class="text-emerald-400 font-semibold">竊聽中 (${g.voice_channel})</span> <span class="text-slate-400 ml-2 text-xs bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">已連接: ${g.voice_duration}</span>` 
                                 : '<span class="text-slate-500">睡覺中</span>';
                             html += `
                                 <tr class="hover:bg-slate-800/40 transition">
                                     <td class="px-4 py-3.5 text-white font-medium">${g.name}</td>
                                     <td class="px-4 py-3.5 text-blue-400 font-medium">${g.member_count} 人</td>
-                                    <td class="px-4 py-3.5">${voiceStatus}</td>
+                                    <td class="px-4 py-3.5 flex items-center h-full">${voiceStatus}</td>
                                 </tr>
                             `;
                         });
@@ -121,7 +129,7 @@
                     } else {
                         guildsContainer.innerHTML = `
                             <tr>
-                                <td colspan="3" class="px-4 py-6 text-center text-slate-500">目前機器人未進駐任何伺服器。</td>
+                                <td colspan="3" class="px-4 py-6 text-center text-slate-500">目前機器人未在任何伺服器。</td>
                             </tr>
                         `;
                     }
@@ -129,7 +137,6 @@
                 .catch(() => console.log("連線監控狀態同步失敗"));
         }
 
-        // 定時同步台北時間日誌
         function updateLogs() {
             fetch('/api/logs')
                 .then(res => res.json())
@@ -144,15 +151,11 @@
                 .catch(() => console.log("日誌載入中斷"));
         }
 
-        // 頁面初始化與定時循環排程
         document.addEventListener('DOMContentLoaded', () => {
-            // 讓初始載入的日誌自動捲動至最底部
             const container = document.getElementById('log-container');
             if (container) {
                 container.scrollTop = container.scrollHeight;
             }
-            
-            // 執行同步與建立定時器（每 3 秒刷新一次）
             updateSystemStatus();
             setInterval(updateSystemStatus, 3000);
             setInterval(updateLogs, 3000);
