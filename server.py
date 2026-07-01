@@ -4,9 +4,10 @@ import threading
 import requests
 import json
 import random
+import time
 from datetime import datetime
 import zoneinfo
-from urllib.parse import quote  # 新增：用於對 OAuth2 重新導向網址進行安全編碼
+from urllib.parse import quote
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for
 import discord
 
@@ -27,7 +28,7 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123").strip()
 # 改為 Discord OAuth2 環境變數
 DISCORD_CLIENT_ID = os.environ.get("DISCORD_CLIENT_ID", "").strip()
 DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET", "").strip()
-DISCORD_REDIRECT_URI = os.environ.get("DISCORD_REDIRECT_URI", "").strip()
+DISCORD_REDIRECT_URI = os.environ.get("DISCORD_REDIRECT_URI", "https://python-discord-bot-ktty.onrender.com/login/discord/callback").strip()
 
 STATE_FILE = "bot_state.json"
 
@@ -69,7 +70,7 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         if not session.get("authenticated") or not session.get("password_verified"):
             if request.path.startswith('/api/') or request.path.startswith('/get_') or request.path.startswith('/join_') or request.path.startswith('/leave_') or request.path.startswith('/send_') or request.path.startswith('/disconnect_'):
-                return jsonify({"success": False, "message": "認證已過期，請重新整理網頁登入。"}), 401
+                return jsonify({"success": False, "message": "認證已過期 請重新整理網頁登入。"}), 401
             return redirect(url_for("login_page", next=request.url))
         return f(*args, **kwargs)
     return decorated_function
@@ -77,13 +78,22 @@ def login_required(f):
 # 初始化第一條日誌
 add_log("系統初始化成功，等待機器人連線...")
 
+def get_google_ping():
+    """簡單測速伺服器到 Google 的延遲 (毫秒)"""
+    try:
+        start = time.perf_counter()
+        requests.head("https://www.google.com", timeout=2)
+        end = time.perf_counter()
+        return round((end - start) * 1000)
+    except Exception:
+        return -1
+
 # ==========================================
 # 歡迎首頁與認證路由
 # ==========================================
 
 @app.route('/')
 def landing_page():
-    """首頁"""
     return '''
     <!DOCTYPE html>
     <html lang="zh-TW">
@@ -167,9 +177,8 @@ def login_password():
 def login_discord():
     if not DISCORD_CLIENT_ID:
         return "環境變數未配置 DISCORD_CLIENT_ID 無法使用 Discord 登入", 400
-    redirect_uri = DISCORD_REDIRECT_URI if DISCORD_REDIRECT_URI else url_for("login_discord_callback", _external=True)
     
-    # 優化：針對 redirect_uri 進行安全 URL 編碼，避免 Discord 鑑權拒絕
+    redirect_uri = DISCORD_REDIRECT_URI
     discord_provider_url = (
         f"https://discord.com/oauth2/authorize?"
         f"client_id={DISCORD_CLIENT_ID}&"
@@ -184,7 +193,7 @@ def login_discord_callback():
     if not code:
         return "授權失敗 未能從 Discord 取得 Code", 400
 
-    redirect_uri = DISCORD_REDIRECT_URI if DISCORD_REDIRECT_URI else url_for("login_discord_callback", _external=True)
+    redirect_uri = DISCORD_REDIRECT_URI
     token_url = "https://discord.com/api/v10/oauth2/token"
     token_data = {
         "client_id": DISCORD_CLIENT_ID,
@@ -218,14 +227,14 @@ def login_discord_callback():
     except Exception as e:
         return f"Discord 驗證流程出錯: {str(e)}", 500
 
+# ==========================================
+# 核心資料與 API 路由 
+# ==========================================
+
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for("login_page"))
-
-# ==========================================
-# 核心資料與 API 路由 
-# ==========================================
 
 @app.route('/dashboard')
 def index_page():
@@ -237,16 +246,22 @@ def get_status():
     if bot is None or not bot.is_ready():
         return jsonify({
             "bot_online": False, 
-            "bot_name": "離線 / 啟動中", 
+            "bot_name": "離線 / 啟動", 
             "guilds_count": 0,
             "cpu": 0,
             "ram": 0,
+            "discord_ping": -1,
+            "google_ping": -1,
             "guilds": []
         })
     
-    # 優化：調整隨機範圍以符合真實面板數據樣式（例如 67.5 MB 左右）
     current_cpu = bot_status.get("cpu", 0) if bot_status.get("cpu", 0) != 0 else round(random.uniform(35.0, 48.0), 1)
-    current_ram = bot_status.get("ram", 0) if bot_status.get("ram", 0) != 0 else round(random.uniform(64.0, 69.5), 1)
+    # 將 RAM 調整為 % 形式的隨機值或真實值
+    current_ram = bot_status.get("ram", 0) if bot_status.get("ram", 0) != 0 else round(random.uniform(30.0, 55.0), 1)
+    
+    # 抓取機器人延遲 (Ping)
+    discord_ping = round(bot.latency * 1000)
+    google_ping = get_google_ping()
 
     guilds_list = []
     for g in bot.guilds:
@@ -265,6 +280,8 @@ def get_status():
         "guilds_count": len(bot.guilds),
         "cpu": current_cpu,
         "ram": current_ram,
+        "discord_ping": discord_ping,
+        "google_ping": google_ping,
         "guilds": guilds_list
     })
 
@@ -310,7 +327,6 @@ def get_voice_channels(guild_id):
     except Exception:
         return jsonify([])
 
-# --- 獲取指定語音頻道內的所有成員 ---
 @app.route('/get_voice_users/<int:guild_id>/<int:channel_id>', methods=['GET'])
 async def get_voice_users(guild_id, channel_id):
     try:
@@ -319,21 +335,20 @@ async def get_voice_users(guild_id, channel_id):
             return jsonify([])
             
         channel = guild.get_channel(channel_id)
-        # 確保抓到的是語音頻道，且程式能讀取裡面的 members 屬性
         if not channel or not hasattr(channel, 'members'):
             return jsonify([])
             
         user_list = []
         for member in channel.members:
-            if not member.bot: # 排除機器人本身，只抓真人成員
+            if not member.bot:
                 user_list.append({
                     'id': str(member.id),
-                    'name': member.display_name # 抓取伺服器暱稱或有名稱
+                    'name': member.display_name
                 })
                 
         return jsonify(user_list)
     except Exception as e:
-        print(f"[系統出錯] 無法撈取語音頻道成員: {str(e)}")
+        print(f"[系統出錯] 無法獲取語音頻道成員: {str(e)}")
         return jsonify([]), 500
 
 @app.route('/join_voice', methods=['POST'])
@@ -371,7 +386,6 @@ def leave_voice():
     except Exception as e:
         return jsonify({"success": False, "message": str(e)})
 
-# --- 將特定成員中斷語音連接的 POST 路由 ---
 @app.route('/disconnect_member', methods=['POST'])
 @login_required
 def disconnect_member():
@@ -499,13 +513,11 @@ async def handle_leave_voice(guild_id: int):
             return False, f"登出語音失敗: {str(e)}"
     return False, "機器人目前未在該伺服器的語音頻道中"
 
-# --- 中斷指定使用者語音連接的核心異步邏輯 ---
 async def handle_disconnect_member(guild_id: int, member_id: int):
     guild = bot.get_guild(guild_id)
     if not guild:
         return False, "找不到指定的伺服器"
     
-    # 優先從快取中取得成員，若無則從 API 拉取
     member = guild.get_member(member_id)
     if not member:
         try:
@@ -518,7 +530,6 @@ async def handle_disconnect_member(guild_id: int, member_id: int):
         
     try:
         old_channel_name = member.voice.channel.name
-        # 將語音頻道設置為 None，即可強制使其斷開語音連接
         await member.move_to(None)
         return True, f"系統提示: 已成功將成員 [{member.display_name}] 從語音頻道 [{old_channel_name}] 切斷連接。"
     except discord.Forbidden:
