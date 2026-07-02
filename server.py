@@ -23,6 +23,8 @@ broadcast_queue = []
 bot_status = {"cpu": 0, "ram": 0}  
 # 新增：紀錄每個 guild 語音連線開始的時間戳記 { "guild_id_str": time.time() }
 voice_connected_start_times = {}
+_last_google_ping_time = 0
+_cached_google_ping = 0
 
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123").strip()
 
