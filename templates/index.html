@@ -151,14 +151,16 @@
                 .catch(() => console.log("日誌載入中斷"));
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
+         document.addEventListener('DOMContentLoaded', () => {
             const container = document.getElementById('log-container');
             if (container) {
                 container.scrollTop = container.scrollHeight;
             }
+            
+            // 執行同步與建立定時器（改為 1 秒刷新一次）
             updateSystemStatus();
-            setInterval(updateSystemStatus, 3000);
-            setInterval(updateLogs, 3000);
+            setInterval(updateSystemStatus, 1000);
+            setInterval(updateLogs, 1000);
         });
     </script>
 </body>
