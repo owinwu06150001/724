@@ -476,6 +476,17 @@ def set_bot(target_bot):
             except Exception as e:
                 add_log(f"[系統] 恢復語音頻道失敗 -> {str(e)}")
 
+    @bot.event
+    async def on_voice_state_update(member, before, after):
+        # 偵測機器人自己離開語音頻道 (包含被管理員踢出或主動離開)
+        if member.id == bot.user.id and before.channel is not None and after.channel is None:
+            guild_id_str = str(member.guild.id)
+            state = load_bot_state()
+            if guild_id_str in state:
+                del state[guild_id_str]
+                save_bot_state(state)
+                add_log(f"[系統] 偵測到機器人已離開/被踢出語音頻道 已自動清除 [{member.guild.name}] 的重連紀錄。")
+
 def run_flask():
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
