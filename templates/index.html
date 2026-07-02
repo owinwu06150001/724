@@ -6,20 +6,21 @@
     <title>機器人監控面板</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        /* 淺粉色風格捲動軸 */
         ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #261020; }
-        ::-webkit-scrollbar-thumb { background: #5c254d; border-radius: 3px; }
+        ::-webkit-scrollbar-track { background: #fff1f2; }
+        ::-webkit-scrollbar-thumb { background: #f43f5e; border-radius: 3px; }
     </style>
 </head>
-<body class="bg-[#170913] text-pink-100 min-h-screen font-sans">
+<body class="bg-[#fff5f6] text-slate-700 min-h-screen font-sans">
 
-    <header class="bg-[#261020] border-b border-[#3d1933] shadow-md">
+    <header class="bg-white border-b border-pink-100 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 py-5 flex justify-between items-center">
             <div class="flex items-center gap-3">
                 <div class="h-3 w-3 rounded-full bg-pink-500 animate-pulse shadow-[0_0_8px_#ec4899]"></div>
-                <h1 class="text-xl font-bold text-white tracking-wide drop-shadow-[0_0_6px_#ec4899]">機器人監控面板</h1>
+                <h1 class="text-xl font-bold text-pink-600 tracking-wide">機器人監控面板</h1>
             </div>
-            <a href="/admin" class="bg-pink-600 hover:bg-pink-700 text-white text-sm font-medium px-5 py-2 rounded-lg transition shadow-[0_0_10px_rgba(236,72,153,0.3)] focus:outline-none">
+            <a href="/admin" class="bg-pink-500 hover:bg-pink-600 text-white text-sm font-medium px-5 py-2 rounded-lg transition shadow-sm focus:outline-none">
                 進入管理後台
             </a>
         </div>
@@ -27,55 +28,63 @@
 
     <main class="max-w-7xl mx-auto px-4 py-8 space-y-8">
         
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-            <div class="bg-[#230d1c] p-6 rounded-xl border border-[#3d1933] shadow-lg text-center flex flex-col justify-center min-h-[120px]">
-                <p class="text-xs font-medium text-pink-400/70 mb-2 uppercase tracking-wider">機器人連線狀態</p>
-                <p id="bot-status-text" class="text-lg font-bold text-pink-700">檢測中...</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-4">
+            <div class="bg-white p-4 rounded-xl border border-pink-100 shadow-sm text-center flex flex-col justify-center min-h-[110px]">
+                <p class="text-[11px] font-bold text-pink-400 mb-1 uppercase tracking-wider">連線狀態</p>
+                <p id="bot-status-text" class="text-base font-bold text-slate-400">檢測中...</p>
             </div>
-            <div class="bg-[#230d1c] p-6 rounded-xl border border-[#3d1933] shadow-lg text-center flex flex-col justify-center min-h-[120px]">
-                <p class="text-xs font-medium text-pink-400/70 mb-2 uppercase tracking-wider">當前帳號名稱</p>
-                <p id="bot-name-text" class="text-lg font-bold text-pink-200 truncate">讀取中...</p>
+            <div class="bg-white p-4 rounded-xl border border-pink-100 shadow-sm text-center flex flex-col justify-center min-h-[110px]">
+                <p class="text-[11px] font-bold text-pink-400 mb-1 uppercase tracking-wider">帳號名稱</p>
+                <p id="bot-name-text" class="text-base font-bold text-slate-700 truncate">讀取中...</p>
             </div>
-            <div class="bg-[#230d1c] p-6 rounded-xl border border-[#3d1933] shadow-lg text-center flex flex-col justify-center min-h-[120px]">
-                <p class="text-xs font-medium text-pink-400/70 mb-2 uppercase tracking-wider">已進駐伺服器總數</p>
-                <p id="bot-guilds-text" class="text-xl font-bold text-pink-400">0 個</p>
+            <div class="bg-white p-4 rounded-xl border border-pink-100 shadow-sm text-center flex flex-col justify-center min-h-[110px]">
+                <p class="text-[11px] font-bold text-pink-400 mb-1 uppercase tracking-wider">進駐伺服器</p>
+                <p id="bot-guilds-text" class="text-lg font-bold text-pink-500">0 個</p>
             </div>
-            <div class="bg-[#230d1c] p-6 rounded-xl border border-[#3d1933] shadow-lg text-center flex flex-col justify-center min-h-[120px]">
-                <p class="text-xs font-medium text-pink-400/70 mb-2 uppercase tracking-wider">中央處理器 (CPU)</p>
-                <p id="bot-cpu-text" class="text-xl font-bold text-rose-400">0 %</p>
+            <div class="bg-white p-4 rounded-xl border border-pink-100 shadow-sm text-center flex flex-col justify-center min-h-[110px]">
+                <p class="text-[11px] font-bold text-pink-400 mb-1 uppercase tracking-wider">CPU 使用率</p>
+                <p id="bot-cpu-text" class="text-lg font-bold text-rose-400">0 %</p>
             </div>
-            <div class="bg-[#230d1c] p-6 rounded-xl border border-[#3d1933] shadow-lg text-center flex flex-col justify-center min-h-[120px]">
-                <p class="text-xs font-medium text-pink-400/70 mb-2 uppercase tracking-wider">記憶體 (RAM)</p>
-                <p id="bot-ram-text" class="text-xl font-bold text-fuchsia-400">0 MB</p>
+            <div class="bg-white p-4 rounded-xl border border-pink-100 shadow-sm text-center flex flex-col justify-center min-h-[110px]">
+                <p class="text-[11px] font-bold text-pink-400 mb-1 uppercase tracking-wider">RAM 記憶體</p>
+                <p id="bot-ram-text" class="text-lg font-bold text-fuchsia-400">0 MB</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-pink-100 shadow-sm text-center flex flex-col justify-center min-h-[110px]">
+                <p class="text-[11px] font-bold text-pink-400 mb-1 uppercase tracking-wider">Discord 延遲</p>
+                <p id="bot-discord-ping-text" class="text-lg font-bold text-amber-500">0 ms</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-pink-100 shadow-sm text-center flex flex-col justify-center min-h-[110px]">
+                <p class="text-[11px] font-bold text-pink-400 mb-1 uppercase tracking-wider">網路延遲</p>
+                <p id="bot-google-ping-text" class="text-lg font-bold text-teal-500">0 ms</p>
             </div>
         </div>
 
-        <div class="bg-[#230d1c] p-6 rounded-xl border border-[#3d1933] shadow-lg">
-            <h3 class="text-md font-semibold text-pink-300 tracking-wider mb-4 border-b border-[#3d1933] pb-2">伺服器詳細狀態</h3>
+        <div class="bg-white p-6 rounded-xl border border-pink-100 shadow-sm">
+            <h3 class="text-sm font-bold text-pink-600 tracking-wider mb-4 border-b border-pink-500/10 pb-2">伺服器詳細狀態</h3>
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">
                     <thead>
-                        <tr class="border-b border-[#3d1933] text-pink-400/60 text-xs tracking-wider uppercase">
+                        <tr class="border-b border-pink-100 text-pink-400 text-xs tracking-wider uppercase">
                             <th class="px-4 py-3">伺服器名稱</th>
                             <th class="px-4 py-3">當前總人數</th>
                             <th class="px-4 py-3">機器人語音頻道狀態</th>
                         </tr>
                     </thead>
-                    <tbody id="guilds-list-container" class="divide-y divide-[#321328] text-sm">
+                    <tbody id="guilds-list-container" class="divide-y divide-pink-50/50 text-sm">
                         <tr>
-                            <td colspan="3" class="px-4 py-6 text-center text-pink-500/70">正在同步伺服器資料中...</td>
+                            <td colspan="3" class="px-4 py-6 text-center text-pink-300">正在同步伺服器資料中...</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
-        <div class="bg-[#230d1c] p-6 rounded-xl border border-[#3d1933] shadow-lg flex flex-col">
-            <div class="flex justify-between items-center mb-4 border-b border-[#3d1933] pb-2">
-                <h3 class="text-md font-semibold text-pink-300 tracking-wider">系統即時日誌</h3>
-                <span class="text-xs bg-[#321328] text-pink-400 px-2 py-0.5 rounded animate-pulse">每秒同步中</span>
+        <div class="bg-white p-6 rounded-xl border border-pink-100 shadow-sm flex flex-col">
+            <div class="flex justify-between items-center mb-4 border-b border-pink-500/10 pb-2">
+                <h3 class="text-sm font-bold text-pink-600 tracking-wider">系統即時日誌</h3>
+                <span class="text-[10px] bg-pink-50 text-pink-500 font-medium px-2 py-0.5 rounded animate-pulse">每秒即時更新</span>
             </div>
-            <div id="log-container" class="bg-[#0f040c] p-4 rounded-lg font-mono text-xs text-pink-400 overflow-y-auto h-[450px] leading-relaxed whitespace-pre-wrap border border-[#321328]">
+            <div id="log-container" class="bg-[#faf4f5] p-4 rounded-lg font-mono text-xs text-pink-700 overflow-y-auto h-[450px] leading-relaxed whitespace-pre-wrap border border-pink-50">
                 {{ log_content }}
             </div>
         </div>
@@ -87,35 +96,41 @@
             fetch('/status')
                 .then(res => res.json())
                 .then(data => {
-                    // 更新 5 大卡片指標
+                    // 1. 更新連線狀態卡片
                     const statusEl = document.getElementById('bot-status-text');
                     if (data.bot_online) {
                         statusEl.textContent = "在線 (Online)";
-                        statusEl.className = "text-lg font-bold text-emerald-400 drop-shadow-[0_0_4px_rgba(52,211,153,0.4)]";
+                        statusEl.className = "text-base font-bold text-emerald-500";
                     } else {
                         statusEl.textContent = "離線 (Offline)";
-                        statusEl.className = "text-lg font-bold text-rose-500";
+                        statusEl.className = "text-base font-bold text-rose-500";
                     }
+                    
+                    // 2. 更新基礎資訊
                     document.getElementById('bot-name-text').textContent = data.bot_name;
                     document.getElementById('bot-guilds-text').textContent = data.guilds_count + " 個";
                     document.getElementById('bot-cpu-text').textContent = data.cpu + " %";
                     document.getElementById('bot-ram-text').textContent = data.ram + " MB";
 
-                    // 動態渲染伺服器名單、當前人數與語音頻道狀態
+                    // 3. 更新加回來的雙 PING 資料
+                    document.getElementById('bot-discord-ping-text').textContent = (data.discord_ping >= 0 ? data.discord_ping : 0) + " ms";
+                    document.getElementById('bot-google-ping-text').textContent = (data.google_ping >= 0 ? data.google_ping : 0) + " ms";
+
+                    // 4. 動態渲染伺服器名單與語音計時器
                     const guildsContainer = document.getElementById('guilds-list-container');
                     if (data.guilds && data.guilds.length > 0) {
                         let html = '';
                         data.guilds.forEach(g => {
-                            // 當在線時，自動追加秒級跳動的時間長度
-                            const durationBadge = g.voice_duration ? `<span class="block text-xs text-pink-400/80 mt-1">⏱️ 已連接：${g.voice_duration}</span>` : '';
+                            // 當語音在線時，顯示每秒動態跳時的計時器
+                            const durationBadge = g.voice_duration ? `<span class="block text-xs text-pink-500/80 mt-1 font-mono">⏱️ 已連接：${g.voice_duration}</span>` : '';
                             const voiceStatus = g.in_voice 
-                                ? `<div class="py-1"><span class="text-pink-400 font-semibold">🟢 竊聽中 (${g.voice_channel})</span>${durationBadge}</div>` 
-                                : '<span class="text-pink-800/60">睡覺中</span>';
+                                ? `<div class="py-1"><span class="text-pink-600 font-semibold">🟢 監聽中 (${g.voice_channel})</span>${durationBadge}</div>` 
+                                : '<span class="text-slate-400">睡覺中</span>';
                                 
                             html += `
-                                <tr class="hover:bg-pink-950/20 transition">
-                                    <td class="px-4 py-3.5 text-pink-100 font-medium">${g.name}</td>
-                                    <td class="px-4 py-3.5 text-rose-400 font-medium">${g.member_count} 人</td>
+                                <tr class="hover:bg-pink-50/30 transition">
+                                    <td class="px-4 py-3.5 text-slate-700 font-medium">${g.name}</td>
+                                    <td class="px-4 py-3.5 text-pink-600 font-medium">${g.member_count} 人</td>
                                     <td class="px-4 py-3.5">${voiceStatus}</td>
                                 </tr>
                             `;
@@ -124,7 +139,7 @@
                     } else {
                         guildsContainer.innerHTML = `
                             <tr>
-                                <td colspan="3" class="px-4 py-6 text-center text-pink-800/50">目前機器人未進駐任何伺服器。</td>
+                                <td colspan="3" class="px-4 py-6 text-center text-pink-300">目前機器人未進駐任何伺服器。</td>
                             </tr>
                         `;
                     }
@@ -147,14 +162,14 @@
                 .catch(() => console.log("日誌載入中斷"));
         }
 
-        // 頁面初始化與定時循環排程
+        // 頁面初始化與定時循環排程 (1秒動一次)
         document.addEventListener('DOMContentLoaded', () => {
             const container = document.getElementById('log-container');
             if (container) {
                 container.scrollTop = container.scrollHeight;
             }
             
-            // 變更為 1000 毫秒（1秒動一次！）
+            // 完美設定為 1000 毫秒（1秒）刷新間隔
             updateSystemStatus();
             setInterval(updateSystemStatus, 1000);
             setInterval(updateLogs, 1000);
