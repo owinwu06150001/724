@@ -67,8 +67,9 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get("authenticated") or not session.get("password_verified"):
-            if request.path.startswith('/api/') or request.path.startswith('/get_') or request.path.startswith('/join_') or request.path.startswith('/leave_') or request.path.startswith('/send_') or request.path.startswith('/disconnect_'):
-                return jsonify({"success": False, "message": "認證已過期，請重新整理網頁登入。"}), 401
+            # 加入 request.path.startswith('/kick_')
+            if request.path.startswith('/api/') or request.path.startswith('/get_') or request.path.startswith('/join_') or request.path.startswith('/leave_') or request.path.startswith('/send_') or request.path.startswith('/disconnect_') or request.path.startswith('/kick_'):
+                return jsonify({"success": False, "message": "認證已過期 請重新整理網頁登入。"}), 401
             return redirect(url_for("login_page", next=request.url))
         return f(*args, **kwargs)
     return decorated_function
@@ -400,21 +401,23 @@ def leave_voice():
     except Exception as e:
         return jsonify({"success": False, "message": str(e)})
 
-@app.route('/disconnect_member', methods=['POST'])
+@app.route('/kick_voice_user', methods=['POST'])
 @login_required
-def disconnect_member():
+def kick_voice_user():
     if bot is None:
         return jsonify({"success": False, "message": "控制失敗: 機器人尚未初始化"})
+    
     data = request.get_json() or {}
     guild_id = data.get('guild_id')
-    member_id = data.get('member_id')
+    user_id = data.get('user_id')  
     
-    if not guild_id or not member_id:
-        return jsonify({"success": False, "message": "缺少必要的伺服器或成員參數"})
+ 
+    if not guild_id or not user_id:
+        return jsonify({"success": False, "message": "操作失敗：請先在選單中指定要踢出的成員！"})
         
     try:
         future = asyncio.run_coroutine_threadsafe(
-            handle_disconnect_member(int(guild_id), int(member_id)), bot.loop
+            handle_disconnect_member(int(guild_id), int(user_id)), bot.loop
         )
         success, msg = future.result(timeout=10)
         add_log(msg)
