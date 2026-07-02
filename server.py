@@ -10,6 +10,7 @@ import zoneinfo
 from urllib.parse import quote
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for
 import discord
+import socket
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "seven24_stable_secret_key_production_fixed")
@@ -77,13 +78,19 @@ def login_required(f):
 add_log("系統初始化成功，等待機器人連線...")
 
 def get_google_ping():
+    
     try:
-        start = time.perf_counter()
-        requests.head("https://www.google.com", timeout=2)
-        end = time.perf_counter()
-        return round((end - start) * 1000)
+        start_time = time.perf_counter()
+
+        with socket.create_connection(("8.8.8.8", 53), timeout=2):
+            pass
+        end_time = time.perf_counter()
+        
+        # 計算毫秒 (ms) 並回傳
+        return int((end_time - start_time) * 1000)
     except Exception:
-        return -1
+        # 連線失敗或逾時回傳 999 ms 代表異常
+        return 999
 
 # ==========================================
 # 歡迎首頁與認證路由
