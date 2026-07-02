@@ -248,6 +248,9 @@ def index_page():
 @app.route('/status')
 def get_status():
     if bot is None or not bot.is_ready():
+    if now - _last_google_ping_time > 5:
+        _cached_google_ping = get_google_ping()
+        _last_google_ping_time = now
         return jsonify({
             "bot_online": False, 
             "bot_name": "離線 / 啟動中", 
