@@ -353,7 +353,7 @@ def get_voice_channels(guild_id):
         return jsonify([])
 
 @app.route('/get_voice_users/<int:guild_id>/<int:channel_id>', methods=['GET'])
-async def get_voice_users(guild_id, channel_id):
+def get_voice_users(guild_id, channel_id):
     try:
         guild = bot.get_guild(guild_id)
         if not guild:
@@ -373,7 +373,7 @@ async def get_voice_users(guild_id, channel_id):
                 
         return jsonify(user_list)
     except Exception as e:
-        print(f"[系統出錯] 無法獲取語音頻道成員: {str(e)}")
+        print(f"[系統] 無法獲取語音頻道成員: {str(e)}")
         return jsonify([]), 500
 
 @app.route('/join_voice', methods=['POST'])
