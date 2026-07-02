@@ -157,7 +157,7 @@
             try {
                 const res = await fetch(`/get_voice_channels/${guildId}`);
                 const channels = await res.json();
-                channelSelect.innerHTML = channels.length ? '<option value="">-- 請選擇語音頻道 --</option>' : '<option value="">此伺服器無語音頻道</option>';
+                channelSelect.innerHTML = channels.length ? '<option value=""> 請選擇語音頻道 </option>' : '<option value="">此伺服器無語音頻道</option>';
                 channels.forEach(ch => {
                     const opt = document.createElement('option');
                     opt.value = ch.id;
@@ -184,7 +184,7 @@
             try {
                 const res = await fetch(`/get_voice_channels/${guildId}`);
                 const channels = await res.json();
-                channelSelect.innerHTML = channels.length ? '<option value="">-- 請選擇語音頻道 --</option>' : '<option value="">此伺服器無語音頻道</option>';
+                channelSelect.innerHTML = channels.length ? '<option value=""> 請選擇語音頻道 </option>' : '<option value="">此伺服器無語音頻道</option>';
                 channels.forEach(ch => {
                     const opt = document.createElement('option');
                     opt.value = ch.id;
@@ -206,7 +206,7 @@
                 userSelect.innerHTML = '<option value="">請先選擇語音頻道</option>';
                 return;
             }
-            userSelect.innerHTML = '<option value="">正在動態掃描頻道成員...</option>';
+            userSelect.innerHTML = '<option value="">正在掃描頻道成員...</option>';
             
             try {
                 const res = await fetch(`/get_voice_users/${guildId}/${channelId}`);
@@ -216,7 +216,7 @@
                 if (users.length === 0) {
                     userSelect.innerHTML = '<option value="">該頻道目前空無一人</option>';
                 } else {
-                    userSelect.innerHTML = '<option value="">-- 選擇特定成員 (留空代表清空頻道) --</option>';
+                    userSelect.innerHTML = '<option value=""> 請選擇特定成員 </option>';
                     users.forEach(u => {
                         const opt = document.createElement('option');
                         opt.value = u.id;
@@ -332,7 +332,7 @@
                 container.scrollTop = container.scrollHeight;
             }
             updateLogs();
-            setInterval(updateLogs, 3000);
+            setInterval(updateLogs, 1000);
         });
     </script>
 </body>
