@@ -54,13 +54,13 @@ AUDIT_LOG_ACTIONS_CN = {
 LOG_TRANSLATIONS = {
     "Connecting to voice...": "正在連線至語音頻道...",
     "Starting voice handshake...": "開始語音連線握手程序...",
-    "Voice handshake complete.": "語音連線握手完成。",
+    "Voice handshake complete.": "語音連線連接完成。",
     "Voice connection complete.": "語音連線建立成功。",
-    "Disconnected from voice... Reconnecting in": "已從語音頻道斷線... 準備重新連線，倒數",
-    "The voice handshake is being terminated": "語音連線握手程序已被強制終止",
-    "WebSocket closed with": "WebSocket 連線已關閉，代碼:",
-    "Shard ID None WebSocket closed with 1006": "連線異常中斷 (錯誤代碼 1006，通常為網路不穩定)",
-    "We have successfully connected to the gateway.": "已成功連線至 Discord 網關。"
+    "Disconnected from voice... Reconnecting in": "已從語音頻道斷線... 準備重新連線 倒數",
+    "The voice handshake is being terminated": "語音連線程序已被強制停止",
+    "WebSocket closed with": "WebSocket 連線已關閉 代碼:",
+    "Shard ID None WebSocket closed with 1006": "連線異常中斷 (錯誤代碼 1006 通常為網路不穩定)",
+    "We have successfully connected to the gateway.": "已成功連線至 Discord"
 }
 
 class WebDashboardHandler(logging.Handler):
