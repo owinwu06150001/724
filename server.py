@@ -247,10 +247,17 @@ def index_page():
 
 @app.route('/status')
 def get_status():
-    if bot is None or not bot.is_ready():
+    global _last_google_ping_time, _cached_google_ping
+    
+    # --- 1. 先計算真實 Google 8.8.8.8 延遲 (每 5 秒更新一次快取) ---
+    now = time.time()
     if now - _last_google_ping_time > 5:
         _cached_google_ping = get_google_ping()
         _last_google_ping_time = now
+    google_ping = _cached_google_ping  # 接下來一律使用快取值，保護伺服器效能
+
+    # --- 2. 檢查機器人狀態，若離線或啟動中則直接返回離線資料 ---
+    if bot is None or not bot.is_ready():
         return jsonify({
             "bot_online": False, 
             "bot_name": "離線 / 啟動中", 
@@ -258,16 +265,17 @@ def get_status():
             "cpu": 0,
             "ram": 0,
             "discord_ping": -1,
-            "google_ping": -1,
+            "google_ping": google_ping,
             "guilds": []
         })
     
+    # --- 3. 機器人在線，正常處理 CPU、RAM 與 Discord 延遲 ---
     current_cpu = bot_status.get("cpu", 0) if bot_status.get("cpu", 0) != 0 else round(random.uniform(35.0, 48.0), 1)
     current_ram = bot_status.get("ram", 0) if bot_status.get("ram", 0) != 0 else round(random.uniform(30.0, 55.0), 1)
     
-    discord_ping = round(bot.latency * 1000)
-    google_ping = get_google_ping()
+    discord_ping = round(bot.latency * 1000) if bot.latency else 0
 
+    # --- 4. 處理伺服器名單與語音駐留時間計算 ---
     guilds_list = []
     for g in bot.guilds:
         guild_id_str = str(g.id)
@@ -276,7 +284,7 @@ def get_status():
         # 計算語音已連接時間長度
         duration_str = "00:00:00"
         if in_voice:
-            # 如果偵測到在語音內，但先前因為重啟等原因漏記時間，在此補上防呆
+            # 防呆：如果偵測到在語音內，但先前因為重啟等原因漏記時間，在此補上
             if guild_id_str not in voice_connected_start_times:
                 voice_connected_start_times[guild_id_str] = time.time()
                 
@@ -299,6 +307,7 @@ def get_status():
             "voice_duration": duration_str  # 傳送時間長度字串至前端
         })
 
+    # --- 5. 成功返回所有即時數據 ---
     return jsonify({
         "bot_online": True,
         "bot_name": bot.user.name if bot.user else "未知用戶",
@@ -306,7 +315,7 @@ def get_status():
         "cpu": current_cpu,
         "ram": current_ram,
         "discord_ping": discord_ping,
-        "google_ping": google_ping,
+        "google_ping": google_ping,  # 帶入正確的快取 Ping 值
         "guilds": guilds_list
     })
 
