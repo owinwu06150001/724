@@ -7,3 +7,4 @@ PyNaCl
 pymongo
 dnspython
 davey
+aiohttp==3.9.3
