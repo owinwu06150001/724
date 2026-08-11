@@ -298,10 +298,9 @@ async def on_voice_state_update(member, before, after):
         embed.add_field(name="停留時間", value=duration_text, inline=False)
         embed.timestamp = datetime.datetime.now()
         await channel.send(embed=embed)
-
 tg_handler = None
 
-    @bot.event
+@bot.event
     async def on_ready():
         global tg_handler
         server.set_bot(bot)
