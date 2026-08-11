@@ -3,6 +3,7 @@ from discord.ext import commands, tasks
 from discord.ext import tasks
 from discord import app_commands
 from typing import Optional
+from telegram_bot import TelegramBotHandler
 import os
 import time
 import asyncio
@@ -298,16 +299,24 @@ async def on_voice_state_update(member, before, after):
         embed.timestamp = datetime.datetime.now()
         await channel.send(embed=embed)
 
-@bot.event
-async def on_ready():
-    server.set_bot(bot)
-    if not update_web_stats.is_running(): update_web_stats.start()
-    if not check_connection.is_running(): check_connection.start()
-    if not update_member_stats.is_running(): update_member_stats.start()
-    if not check_restart.is_running(): check_restart.start()
-    if not check_broadcast.is_running():
-        check_broadcast.start()
-    update_status.start()
+tg_handler = None
+
+    @bot.event
+    async def on_ready():
+        global tg_handler
+        server.set_bot(bot)
+        if not update_web_stats.is_running(): update_web_stats.start()
+        if not check_connection.is_running(): check_connection.start()
+        if not update_member_stats.is_running(): update_member_stats.start()
+        if not check_restart.is_running(): check_restart.start()
+        if not check_broadcast.is_running(): check_broadcast.start()
+        update_status.start()
+
+    # 啟動 Telegram Bot 背景監聽服務
+        if tg_handler is None:
+            tg_handler = TelegramBotHandler(bot, start_time)
+            bot.loop.create_task(tg_handler.start_polling())
+
     await bot.tree.sync()
     print(f"機器人已登入: {bot.user}")
 
