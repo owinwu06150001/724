@@ -311,11 +311,12 @@ async def on_ready():
     if not check_broadcast.is_running(): check_broadcast.start()
     update_status.start()
 
-    # 啟動 Telegram Bot 背景監聽服務
-if tg_handler is None:
-    tg_handler = TelegramBotHandler(bot, start_time)
-    bot.loop.create_task(tg_handler.start_polling())
+    # 啟動 Telegram Bot 背景任務
+    if tg_handler is None:
+        tg_handler = TelegramBotHandler(bot, start_time)
+        bot.loop.create_task(tg_handler.start_polling())
 
+    # 必須縮排 4 個空白，包含在 on_ready 函式之內
     await bot.tree.sync()
     print(f"機器人已登入: {bot.user}")
 
