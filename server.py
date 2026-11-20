@@ -8,7 +8,7 @@ import time
 from datetime import datetime
 import zoneinfo
 from urllib.parse import quote
-from flask import Flask, render_template, jsonify, request, session, redirect, url_for
+from flask import Flask, render_template, jsonify, request, session, redirect, url_for, Response
 import discord
 import socket
 
@@ -18,9 +18,9 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "seven24_stable_secret_key_p
 bot = None
 _flask_started = False
 log_store = []
-broadcast_queue = []  
+broadcast_queue = []
 
-bot_status = {"cpu": 0, "ram": 0}  
+bot_status = {"cpu": 0, "ram": 0}
 # 新增：紀錄每個 guild 語音連線開始的時間戳記 { "guild_id_str": time.time() }
 voice_connected_start_times = {}
 _last_google_ping_time = 0
@@ -56,13 +56,13 @@ def add_log(message):
         timestamp = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
     except Exception:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
+
     if message.startswith("[202"):
         log_store.append(message)
     else:
         log_store.append(f"[{timestamp}] {message}")
-        
-    if len(log_store) > 100:  
+
+    if len(log_store) > 100:
         log_store.pop(0)
 
 def login_required(f):
@@ -70,7 +70,6 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get("authenticated") or not session.get("password_verified"):
-            # 加入 request.path.startswith('/kick_')
             if request.path.startswith('/api/') or request.path.startswith('/get_') or request.path.startswith('/join_') or request.path.startswith('/leave_') or request.path.startswith('/send_') or request.path.startswith('/disconnect_') or request.path.startswith('/kick_'):
                 return jsonify({"success": False, "message": "認證已過期 請重新整理網頁登入。"}), 401
             return redirect(url_for("login_page", next=request.url))
@@ -80,23 +79,25 @@ def login_required(f):
 add_log("系統初始化成功，等待機器人連線...")
 
 def get_google_ping():
-    
     try:
         start_time = time.perf_counter()
 
         with socket.create_connection(("8.8.8.8", 53), timeout=2):
             pass
         end_time = time.perf_counter()
-        
-        # 計算毫秒 (ms) 並回傳
+
         return int((end_time - start_time) * 1000)
     except Exception:
-        # 連線失敗或逾時回傳 999 ms 代表異常
         return 999
 
 # ==========================================
-# 歡迎首頁與認證路由
+# 歡迎首頁、Ads.txt 與認證路由
 # ==========================================
+
+@app.route('/ads.txt')
+def ads_txt():
+    content = "google.com, pub-5826369300893030, DIRECT, f08c47fec0942fa0\n"
+    return Response(content, mimetype="text/plain; charset=utf-8")
 
 @app.route('/')
 def landing_page():
@@ -107,28 +108,30 @@ def landing_page():
         <title>你好</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5826369300893030"
+     crossorigin="anonymous"></script>
         <script src="https://cdn.tailwindcss.com"></script>
     </head>
     <body class="bg-[#0f172a] text-slate-200 flex items-center justify-center min-h-screen font-sans">
         <div class="bg-[#1e293b] p-8 rounded-xl shadow-2xl border border-slate-700 w-full max-w-md mx-4 text-center">
             <h1 class="text-3xl font-bold mb-2 text-white">你好</h1>
             <p class="text-sm text-slate-400 mb-8">請選擇您想前往的平台或進入控制台</p>
-            
+
             <div class="space-y-4">
                 <a href="https://www.instagram.com/_6yluo/?__pwa=1" target="_blank" class="block w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-medium rounded-lg transition shadow-lg shadow-pink-900/20">
                     我的 Instagram
                 </a>
-                
+
                 <a href="https://discord.gg/ECN3TvqaGV" target="_blank" class="block w-full py-3 bg-[#5865F2] hover:bg-[#4752C4] text-white font-medium rounded-lg transition shadow-lg shadow-blue-900/20">
                     加入 Discord 伺服器
                 </a>
-                
+
                 <div class="relative flex py-4 items-center">
                     <div class="flex-grow border-t border-slate-700"></div>
                     <span class="flex-shrink mx-4 text-slate-500 text-xs tracking-wider">管理專區</span>
                     <div class="flex-grow border-t border-slate-700"></div>
                 </div>
-                
+
                 <a href="/dashboard" class="block w-full py-3 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-lg transition border border-slate-600">
                     進入機器人狀態面板
                 </a>
@@ -183,7 +186,7 @@ def login_password():
 def login_discord():
     if not DISCORD_CLIENT_ID:
         return "環境變數未配置 DISCORD_CLIENT_ID 無法使用 Discord 登入", 400
-    
+
     redirect_uri = DISCORD_REDIRECT_URI
     discord_provider_url = (
         f"https://discord.com/oauth2/authorize?"
@@ -211,30 +214,30 @@ def login_discord_callback():
     token_headers = {
         "Content-Type": "application/x-www-form-urlencoded"
     }
-    
+
     try:
         token_res = requests.post(token_url, data=token_data, headers=token_headers).json()
         access_token = token_res.get("access_token")
-        
+
         if not access_token:
-            return f"換取 Token 失敗 請確認 Client Secret 是否正確設定", 400
-        
+            return "換取 Token 失敗 請確認 Client Secret 是否正確設定", 400
+
         user_info_res = requests.get(
             "https://discord.com/api/v10/users/@me",
             headers={"Authorization": f"Bearer {access_token}"}
         ).json()
-        
+
         session["authenticated"] = True
-        session["password_verified"] = True  
+        session["password_verified"] = True
         session["discord_user"] = user_info_res.get("username")
         add_log(f"[安全] 使用者 {session['discord_user']} 透過 Discord 登入成功")
-        
+
         return redirect(url_for("admin_page"))
     except Exception as e:
         return f"Discord 驗證流程出錯: {str(e)}", 500
 
 # ==========================================
-# 核心資料與 API 路由 
+# 核心資料與 API 路由
 # ==========================================
 
 @app.route('/logout')
@@ -250,19 +253,17 @@ def index_page():
 @app.route('/status')
 def get_status():
     global _last_google_ping_time, _cached_google_ping
-    
-    # --- 1. 先計算真實 Google 8.8.8.8 延遲 (每 5 秒更新一次快取) ---
+
     now = time.time()
     if now - _last_google_ping_time > 5:
         _cached_google_ping = get_google_ping()
         _last_google_ping_time = now
-    google_ping = _cached_google_ping  # 接下來一律使用快取值，保護伺服器效能
+    google_ping = _cached_google_ping
 
-    # --- 2. 檢查機器人狀態，若離線或啟動中則直接返回離線資料 ---
     if bot is None or not bot.is_ready():
         return jsonify({
-            "bot_online": False, 
-            "bot_name": "離線 / 啟動中", 
+            "bot_online": False,
+            "bot_name": "離線 / 啟動中",
             "guilds_count": 0,
             "cpu": 0,
             "ram": 0,
@@ -270,33 +271,28 @@ def get_status():
             "google_ping": google_ping,
             "guilds": []
         })
-    
-    # --- 3. 機器人在線，正常處理 CPU、RAM 與 Discord 延遲 ---
+
     current_cpu = bot_status.get("cpu", 0) if bot_status.get("cpu", 0) != 0 else round(random.uniform(35.0, 48.0), 1)
     current_ram = bot_status.get("ram", 0) if bot_status.get("ram", 0) != 0 else round(random.uniform(30.0, 55.0), 1)
-    
+
     discord_ping = round(bot.latency * 1000) if bot.latency else 0
 
-    # --- 4. 處理伺服器名單與語音駐留時間計算 ---
     guilds_list = []
     for g in bot.guilds:
         guild_id_str = str(g.id)
         in_voice = g.voice_client is not None and g.voice_client.is_connected()
-        
-        # 計算語音已連接時間長度
+
         duration_str = "00:00:00"
         if in_voice:
-            # 防呆：如果偵測到在語音內，但先前因為重啟等原因漏記時間，在此補上
             if guild_id_str not in voice_connected_start_times:
                 voice_connected_start_times[guild_id_str] = time.time()
-                
+
             elapsed = int(time.time() - voice_connected_start_times[guild_id_str])
             hours = elapsed // 3600
             minutes = (elapsed % 3600) // 60
             seconds = elapsed % 60
             duration_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
         else:
-            # 不在語音中就移除記錄
             if guild_id_str in voice_connected_start_times:
                 voice_connected_start_times.pop(guild_id_str, None)
 
@@ -306,10 +302,9 @@ def get_status():
             "member_count": g.member_count,
             "in_voice": in_voice,
             "voice_channel": g.voice_client.channel.name if (in_voice and g.voice_client.channel) else "未加入",
-            "voice_duration": duration_str  # 傳送時間長度字串至前端
+            "voice_duration": duration_str
         })
 
-    # --- 5. 成功返回所有即時數據 ---
     return jsonify({
         "bot_online": True,
         "bot_name": bot.user.name if bot.user else "未知用戶",
@@ -317,7 +312,7 @@ def get_status():
         "cpu": current_cpu,
         "ram": current_ram,
         "discord_ping": discord_ping,
-        "google_ping": google_ping,  # 帶入正確的快取 Ping 值
+        "google_ping": google_ping,
         "guilds": guilds_list
     })
 
@@ -369,11 +364,11 @@ def get_voice_users(guild_id, channel_id):
         guild = bot.get_guild(guild_id)
         if not guild:
             return jsonify([])
-            
+
         channel = guild.get_channel(channel_id)
         if not channel or not hasattr(channel, 'members'):
             return jsonify([])
-            
+
         user_list = []
         for member in channel.members:
             if not member.bot:
@@ -381,7 +376,7 @@ def get_voice_users(guild_id, channel_id):
                     'id': str(member.id),
                     'name': member.display_name
                 })
-                
+
         return jsonify(user_list)
     except Exception as e:
         print(f"[系統] 無法獲取語音頻道成員: {str(e)}")
@@ -427,15 +422,14 @@ def leave_voice():
 def kick_voice_user():
     if bot is None:
         return jsonify({"success": False, "message": "控制失敗: 機器人尚未初始化"})
-    
+
     data = request.get_json() or {}
     guild_id = data.get('guild_id')
-    user_id = data.get('user_id')  
-    
- 
+    user_id = data.get('user_id')
+
     if not guild_id or not user_id:
         return jsonify({"success": False, "message": "操作失敗：請先在選單中指定要踢出的成員！"})
-        
+
     try:
         future = asyncio.run_coroutine_threadsafe(
             handle_disconnect_member(int(guild_id), int(user_id)), bot.loop
@@ -477,11 +471,11 @@ def set_bot(target_bot):
     global bot
     bot = target_bot
     print("[系統] 收到 bot.py 傳入的 Bot 實例 對接成功。")
-    
+
     @bot.event
     async def on_ready():
         add_log(f"[系統] 機器人已成功連線。登入身分: {bot.user.name} (ID: {bot.user.id})")
-        
+
         state = load_bot_state()
         for guild_id_str, channel_id in state.items():
             try:
@@ -494,7 +488,6 @@ def set_bot(target_bot):
                             await guild.change_voice_state(channel=channel, self_deaf=True, self_mute=True)
                         else:
                             await channel.connect(self_deaf=True, self_mute=True)
-                        # 恢復頻道時也重置時間
                         voice_connected_start_times[guild_id_str] = time.time()
                         add_log(f"[系統] 重啟自動恢復語音頻道 -> {guild.name} / {channel.name}")
             except Exception as e:
@@ -502,7 +495,6 @@ def set_bot(target_bot):
 
     @bot.event
     async def on_voice_state_update(member, before, after):
-        # 偵測機器人自己離開語音頻道 (包含被管理員踢出或主動離開)
         if member.id == bot.user.id and before.channel is not None and after.channel is None:
             guild_id_str = str(member.guild.id)
             state = load_bot_state()
@@ -537,14 +529,13 @@ async def handle_join_voice(guild_id: int, channel_id: int):
             await guild.change_voice_state(channel=channel, self_deaf=True, self_mute=True)
         else:
             await channel.connect(self_deaf=True, self_mute=True)
-            
-        # 核心：成功加入或切換頻道，記錄/重置當前連線起始時間
+
         voice_connected_start_times[str(guild_id)] = time.time()
-            
+
         state = load_bot_state()
         state[str(guild_id)] = channel_id
         save_bot_state(state)
-        
+
         return True, f"系統提示: 成功讓機器人加入語音頻道 -> {guild.name} / {channel.name}"
     except Exception as e:
         return False, f"遠端控制失敗: 無法建立語音連接 ({str(e)})"
@@ -556,15 +547,14 @@ async def handle_leave_voice(guild_id: int):
     if guild.voice_client:
         try:
             await guild.voice_client.disconnect()
-            
-            # 核心：退出語音後移除時間紀錄
+
             voice_connected_start_times.pop(str(guild_id), None)
-            
+
             state = load_bot_state()
             if str(guild_id) in state:
                 del state[str(guild_id)]
                 save_bot_state(state)
-                
+
             return True, f"系統提示: 機器人已登出 [{guild.name}] 的語音頻道。"
         except Exception as e:
             return False, f"登出語音失敗: {str(e)}"
@@ -574,17 +564,17 @@ async def handle_disconnect_member(guild_id: int, member_id: int):
     guild = bot.get_guild(guild_id)
     if not guild:
         return False, "找不到指定的伺服器"
-    
+
     member = guild.get_member(member_id)
     if not member:
         try:
             member = await guild.fetch_member(member_id)
         except Exception:
             return False, "在該伺服器中找不到指定的成員"
-            
+
     if not member.voice or not member.voice.channel:
         return False, f"操作失敗: {member.display_name} 目前不在任何語音頻道中"
-        
+
     try:
         old_channel_name = member.voice.channel.name
         await member.move_to(None)
