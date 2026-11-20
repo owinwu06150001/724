@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>機器人監控面板</title>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5826369300893030"
+     crossorigin="anonymous"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* 自訂細緻粉色捲動軸 */
@@ -119,8 +121,8 @@
                         data.guilds.forEach(g => {
                             const durationBadge = g.voice_duration ? `<span class="block text-xs text-pink-600 mt-1 font-mono">⏱️ 已連接：${g.voice_duration}</span>` : '';
                             const voiceStatus = g.in_voice 
-                                ? `<div class="py-1"><span class="text-pink-600 font-bold">🟢 監聽中 (${g.voice_channel})</span>${durationBadge}</div>` 
-                                : '<span class="text-slate-400">💤 睡覺中</span>';
+                                ? `<div class="py-1"><span class="text-pink-600 font-bold">監聽中 (${g.voice_channel})</span>${durationBadge}</div>` 
+                                : '<span class="text-slate-400">睡覺中</span>';
                                 
                             html += `
                                 <tr class="hover:bg-pink-100/40 transition">
